@@ -15,7 +15,10 @@ func TestRunsCutoff(t *testing.T) {
 
 func TestOutdatedRuns(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 9, d, 12, 0, 0, 0, time.UTC) }
-	// Release (workflow 1), Prune (workflow 2) and CI (workflow 3), in any order
+	// Release (workflow 1), Prune (workflow 2) and CI (workflow 3), in any
+	// order. GitHub gives every finished run the status "completed", also a
+	// failed or cancelled one (its result is in the conclusion), so the
+	// completed runs here stand for runs with any result.
 	runs := []repoRun{
 		{ID: 11, WorkflowID: 1, Workflow: "Release", Status: "completed", Created: day(1)},
 		{ID: 12, WorkflowID: 1, Workflow: "Release", Status: "completed", Created: day(20)},

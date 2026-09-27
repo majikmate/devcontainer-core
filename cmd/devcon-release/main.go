@@ -216,7 +216,7 @@ func prune(args []string) error {
 	fs.BoolVar(&o.AllButNewest, "all-but-newest", false, "every release of the current major line except the newest is outdated")
 	fs.BoolVar(&o.DeletePackages, "delete-packages", false, "delete the whole packages")
 	fs.StringVar(&o.Repository, "repository", os.Getenv("GITHUB_REPOSITORY"), "repository (owner/name) whose old workflow runs are deleted")
-	fs.IntVar(&o.RunsMaxAgeDays, "runs-max-age-days", 0, "completed workflow runs of the repository older than this are deleted; with --all-but-newest all but the newest run of each workflow (0: keep all)")
+	fs.IntVar(&o.RunsMaxAgeDays, "runs-max-age-days", 0, "finished workflow runs (any result) of the repository older than this are deleted; with --all-but-newest all but the newest run of each workflow (0: keep all)")
 	mode := fs.String("mode", "report", "report (list only) or apply (delete)")
 	fs.Parse(args)
 	switch *mode {

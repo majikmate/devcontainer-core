@@ -55,10 +55,12 @@ func listRuns(gh *gitHub, repository, query string) ([]repoRun, error) {
 	return runs, nil
 }
 
-// outdatedRuns selects the workflow runs to delete. A run that is not
-// completed is always kept. With allButNewest, every completed run except the
-// newest run of each workflow is outdated; otherwise every completed run
-// created before the cutoff day.
+// outdatedRuns selects the workflow runs to delete. Only finished runs (GitHub
+// status "completed", with any conclusion: success, failure, cancelled, ...)
+// are deleted; a run that is still queued, waiting or in progress is kept.
+// With allButNewest, every finished run except the newest run of each
+// workflow is outdated; otherwise every finished run created before the
+// cutoff day.
 func outdatedRuns(runs []repoRun, cutoff time.Time, allButNewest bool) []repoRun {
 	sorted := append([]repoRun(nil), runs...)
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Created.After(sorted[j].Created) })
@@ -96,15 +98,15 @@ func runsByWorkflow(runs []repoRun) ([]string, map[string]int) {
 }
 
 // pruneRuns deletes (or reports) the outdated workflow runs of the
-// repository: the completed runs older than maxAgeDays, or with allButNewest
-// all completed runs except the newest run of each workflow. It returns the
+// repository: the finished runs older than maxAgeDays, or with allButNewest
+// all finished runs except the newest run of each workflow. It returns the
 // report lines and the failures.
 func pruneRuns(gh *gitHub, repository string, maxAgeDays int, allButNewest bool, now time.Time, apply bool) ([]string, []string) {
 	cutoff := runsCutoff(now, maxAgeDays)
-	rule := fmt.Sprintf("completed runs older than %d days (created before %s)", maxAgeDays, cutoff.Format("2006-01-02"))
+	rule := fmt.Sprintf("finished runs (any result) older than %d days (created before %s)", maxAgeDays, cutoff.Format("2006-01-02"))
 	query := "created=" + url.QueryEscape("<"+cutoff.Format("2006-01-02"))
 	if allButNewest {
-		rule = "all completed runs except the newest run of each workflow"
+		rule = "all finished runs (any result) except the newest run of each workflow"
 		query = ""
 	}
 	runs, err := listRuns(gh, repository, query)

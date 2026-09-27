@@ -29,9 +29,9 @@ type PruneOptions struct {
 	// DeletePackages deletes the whole packages (for packages that are no
 	// longer published).
 	DeletePackages bool
-	// Repository (owner/name) whose completed workflow runs older than
-	// RunsMaxAgeDays are deleted (0: keep all runs); with AllButNewest, all
-	// completed runs except the newest run of each workflow.
+	// Repository (owner/name) whose finished workflow runs (any result) older
+	// than RunsMaxAgeDays are deleted (0: keep all runs); with AllButNewest,
+	// all finished runs except the newest run of each workflow.
 	Repository     string
 	RunsMaxAgeDays int
 	Apply          bool // delete; otherwise only report
@@ -60,8 +60,8 @@ type packageVersion struct {
 // architecture in a multi-architecture image) is never deleted, and neither
 // is the newest release or a version with a moving tag (2, 2.0, latest).
 //
-// With RunsMaxAgeDays, Prune also deletes the completed workflow runs of the
-// repository that are older, or with AllButNewest all completed runs except
+// With RunsMaxAgeDays, Prune also deletes the finished workflow runs of the
+// repository that are older, or with AllButNewest all finished runs except
 // the newest run of each workflow (see pruneRuns).
 func Prune(o PruneOptions) error {
 	gh := newGitHub(o.Token)

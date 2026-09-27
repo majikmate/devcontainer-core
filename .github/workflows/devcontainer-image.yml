@@ -60,7 +60,7 @@ on:
         type: string
         default: apply
       prune-max-age-days:
-        description: Releases of the current major line and completed workflow runs older than this number of days are outdated; the newest release is always kept (0 keeps all)
+        description: Releases of the current major line and finished workflow runs (any result) older than this number of days are outdated; the newest release is always kept (0 keeps all)
         type: number
         default: 90
     secrets:

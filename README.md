@@ -252,8 +252,10 @@ Always kept: the newest release, every version with a moving tag (`2`, `2.0`,
 `latest`) and the parts of kept images. When the references of a kept image
 cannot be read, no untagged version is deleted.
 
-The same job deletes the completed **workflow runs** of the repository older
-than `prune-max-age-days` (permission `actions: write`). The input `prune`
+The same job deletes the finished **workflow runs** of the repository older
+than `prune-max-age-days`, whatever their result (success, failure,
+cancelled); only runs that are still running are kept (permission
+`actions: write`). The input `prune`
 selects `apply` (default), `report` (list only) or `off`. Deleting cannot be
 undone.
 
