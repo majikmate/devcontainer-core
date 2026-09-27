@@ -9,9 +9,9 @@ import (
 )
 
 // checkSupport runs the support checks of the installed layers in the newest
-// image ("devcon check", for example the Debian release of the layer os). It
+// image ("devenv check", for example the Debian release of the layer os). It
 // returns an error when a layer has reached its end of life. When the check is
-// not possible (for example an older image without "devcon check"), it only
+// not possible (for example an older image without "devenv check"), it only
 // warns: the build runs the same checks after the installation.
 func checkSupport(image string, dockerfile *Dockerfile) error {
 	var names []string
@@ -23,7 +23,7 @@ func checkSupport(image string, dockerfile *Dockerfile) error {
 	if len(names) == 0 {
 		return nil
 	}
-	args := append([]string{"run", "--rm", "--pull", "always", "--entrypoint", "devcon", image, "check"}, names...)
+	args := append([]string{"run", "--rm", "--pull", "always", "--entrypoint", "devenv", image, "check"}, names...)
 	out, err := sys.Output("docker", args...)
 	if err != nil {
 		warning("Support check skipped: %v", err)
@@ -32,7 +32,7 @@ func checkSupport(image string, dockerfile *Dockerfile) error {
 	return parseSupport(out)
 }
 
-// parseSupport reads the output of "devcon check" and returns the end-of-life
+// parseSupport reads the output of "devenv check" and returns the end-of-life
 // messages as one error (nil when all layers are supported).
 func parseSupport(out string) error {
 	var messages []string

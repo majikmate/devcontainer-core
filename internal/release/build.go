@@ -65,7 +65,7 @@ func Build(o BuildOptions) error {
 	}
 
 	// 3. Labels are set in a second step without file changes
-	context, err := os.MkdirTemp("", "devcon-label-")
+	context, err := os.MkdirTemp("", "devenv-label-")
 	if err != nil {
 		return err
 	}
@@ -123,20 +123,20 @@ func metadataLabel(project *Project, image, repository string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("label of the base image: %w", err)
 	}
-	out, err := sys.Output("docker", "run", "--rm", "--entrypoint", "devcon", image, "metadata")
+	out, err := sys.Output("docker", "run", "--rm", "--entrypoint", "devenv", image, "metadata")
 	if err != nil {
-		return "", fmt.Errorf("devcon metadata: %w", err)
+		return "", fmt.Errorf("devenv metadata: %w", err)
 	}
 	var layers []devcontainer.Entry
 	if err := json.Unmarshal([]byte(out), &layers); err != nil {
-		return "", fmt.Errorf("devcon metadata: %w", err)
+		return "", fmt.Errorf("devenv metadata: %w", err)
 	}
 	config, err := os.ReadFile(filepath.Join(project.DevcontainerDir, "devcontainer.json"))
 	if err != nil {
 		return "", err
 	}
 	name := repository[strings.LastIndex(repository, "/")+1:]
-	own, err := devcontainer.ImageEntry("devcon/image/"+name, config)
+	own, err := devcontainer.ImageEntry("devenv/image/"+name, config)
 	if err != nil {
 		return "", err
 	}
@@ -161,7 +161,7 @@ func testImage(image, label string, o BuildOptions) error {
 	}
 
 	var output bytes.Buffer
-	cmd := exec.Command("docker", "run", "--rm", "--user", user, "--entrypoint", "devcon", image, "test")
+	cmd := exec.Command("docker", "run", "--rm", "--user", user, "--entrypoint", "devenv", image, "test")
 	cmd.Stdout = &output
 	cmd.Stderr = &output
 	testErr := cmd.Run()

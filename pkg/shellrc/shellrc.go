@@ -1,8 +1,8 @@
 // Package shellrc manages the shell configuration of the image. Layers add
 // files to two folders; bash and zsh load them in interactive shells:
 //
-//	/etc/devcon/shellrc.d/*.sh   bash and zsh (for example aliases)
-//	/etc/devcon/zshrc.d/*.zsh    zsh only (for example the prompt)
+//	/etc/devenv/shellrc.d/*.sh   bash and zsh (for example aliases)
+//	/etc/devenv/zshrc.d/*.zsh    zsh only (for example the prompt)
 //
 // The system start files of bash and zsh get one loader block each. Layers
 // never edit these start files themselves.
@@ -16,21 +16,21 @@ import (
 )
 
 const (
-	sharedDir = "/etc/devcon/shellrc.d"
-	zshDir    = "/etc/devcon/zshrc.d"
+	sharedDir = "/etc/devenv/shellrc.d"
+	zshDir    = "/etc/devenv/zshrc.d"
 
-	markerBegin = "# >>> devcon >>>"
-	markerEnd   = "# <<< devcon <<<"
+	markerBegin = "# >>> devenv >>>"
+	markerEnd   = "# <<< devenv <<<"
 )
 
 const bashLoader = markerBegin + `
-for devcon_rc in /etc/devcon/shellrc.d/*.sh; do [ -r "$devcon_rc" ] && . "$devcon_rc"; done
-unset devcon_rc
+for devenv_rc in /etc/devenv/shellrc.d/*.sh; do [ -r "$devenv_rc" ] && . "$devenv_rc"; done
+unset devenv_rc
 ` + markerEnd
 
 const zshLoader = markerBegin + `
-for devcon_rc in /etc/devcon/shellrc.d/*.sh(N) /etc/devcon/zshrc.d/*.zsh(N); do . "$devcon_rc"; done
-unset devcon_rc
+for devenv_rc in /etc/devenv/shellrc.d/*.sh(N) /etc/devenv/zshrc.d/*.zsh(N); do . "$devenv_rc"; done
+unset devenv_rc
 ` + markerEnd
 
 // Shared adds a configuration file for bash and zsh.
@@ -50,7 +50,7 @@ func add(path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	header := fmt.Sprintf("# Written by devcon (layer file %s). Changes are lost at the next image build.\n", filepath.Base(path))
+	header := fmt.Sprintf("# Written by devenv (layer file %s). Changes are lost at the next image build.\n", filepath.Base(path))
 	return os.WriteFile(path, []byte(header+strings.TrimSpace(content)+"\n"), 0o644)
 }
 

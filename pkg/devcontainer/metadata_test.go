@@ -29,17 +29,17 @@ func TestStripJSONC(t *testing.T) {
 }
 
 func TestImageEntry(t *testing.T) {
-	entry, err := ImageEntry("devcon/image/x", []byte(`{
+	entry, err := ImageEntry("devenv/image/x", []byte(`{
   "name": "X",
   "build": {"dockerfile": "Dockerfile"},
   "remoteUser": "dev",
-  "customizations": {"vscode": {"extensions": ["a.b"]}, "devcon": {"deno": {"channel": "stable"}}},
+  "customizations": {"vscode": {"extensions": ["a.b"]}, "devenv": {"deno": {"channel": "stable"}}},
 }`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c, _ := entry["customizations"].(map[string]any); c["devcon"] != nil || c["vscode"] == nil {
-		t.Errorf("customizations = %v, want vscode without devcon", entry["customizations"])
+	if c, _ := entry["customizations"].(map[string]any); c["devenv"] != nil || c["vscode"] == nil {
+		t.Errorf("customizations = %v, want vscode without devenv", entry["customizations"])
 	}
 	if _, ok := entry["build"]; ok {
 		t.Error("build must not be in the label")
@@ -47,17 +47,17 @@ func TestImageEntry(t *testing.T) {
 	if _, ok := entry["name"]; ok {
 		t.Error("name must not be in the label")
 	}
-	if entry["remoteUser"] != "dev" || entry.ID() != "devcon/image/x" {
+	if entry["remoteUser"] != "dev" || entry.ID() != "devenv/image/x" {
 		t.Errorf("entry = %v", entry)
 	}
 }
 
 func TestMerge(t *testing.T) {
-	base := []Entry{{"id": "devcon/os"}, {"id": "devcon/image/core"}}
-	layers := []Entry{{"id": "devcon/os"}, {"id": "devcon/go"}}
-	image := Entry{"id": "devcon/image/base"}
+	base := []Entry{{"id": "devenv/os"}, {"id": "devenv/image/core"}}
+	layers := []Entry{{"id": "devenv/os"}, {"id": "devenv/go"}}
+	image := Entry{"id": "devenv/image/base"}
 	got := Merge(base, layers, image)
-	want := []string{"devcon/os", "devcon/image/core", "devcon/go", "devcon/image/base"}
+	want := []string{"devenv/os", "devenv/image/core", "devenv/go", "devenv/image/base"}
 	if len(got) != len(want) {
 		t.Fatalf("got %d entries, want %d: %v", len(got), len(want), got)
 	}
@@ -67,7 +67,7 @@ func TestMerge(t *testing.T) {
 		}
 	}
 	// A rebuild of the same image replaces its own entry
-	again := Merge(got, nil, Entry{"id": "devcon/image/base", "x": 1})
+	again := Merge(got, nil, Entry{"id": "devenv/image/base", "x": 1})
 	if len(again) != 4 || again[3]["x"] != 1 {
 		t.Errorf("rebuild: %v", again)
 	}

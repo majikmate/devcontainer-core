@@ -11,7 +11,7 @@ import (
 //  1. The source of the tool lists its releases, newest first (Source).
 //  2. The feature decides the release line and the channel (Tool.Version);
 //     the devcontainer.json of an image can override them
-//     ("customizations": {"devcon": {"<tool>": {"pin": "...", "channel": "..."}}}).
+//     ("customizations": {"devenv": {"<tool>": {"pin": "...", "channel": "..."}}}).
 //  3. The newest release in the channel and in the pinned line is installed;
 //     a tool that follows another tool (gopls follows go) gets the newest of
 //     these releases that works with the version of that tool.
@@ -101,7 +101,7 @@ func (t *Tool) CheckSupport(c Config) error {
 	err := t.Source.Support(c.Pin)
 	if eol := (*EndOfLifeError)(nil); errors.As(err, &eol) {
 		eol.What = fmt.Sprintf("%s %s (pinned line)", t.Name, c.Pin)
-		eol.Change = "the pinned line of " + t.Name + " (Tool.Version of its layer, or customizations.devcon." + t.Name + ".pin in the devcontainer.json of the image)"
+		eol.Change = "the pinned line of " + t.Name + " (Tool.Version of its layer, or customizations.devenv." + t.Name + ".pin in the devcontainer.json of the image)"
 		return eol
 	}
 	if err != nil {

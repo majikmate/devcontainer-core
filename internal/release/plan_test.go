@@ -9,7 +9,7 @@ import (
 	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
-// TestProjectTools: the overrides of customizations.devcon in the
+// TestProjectTools: the overrides of customizations.devenv in the
 // devcontainer.json of an image.
 func TestProjectTools(t *testing.T) {
 	dir := t.TempDir()
@@ -22,7 +22,7 @@ func TestProjectTools(t *testing.T) {
   "build": {"dockerfile": "Dockerfile"},
   "customizations": {
     "vscode": {"extensions": ["a.b"]},
-    "devcon": {"deno": {"channel": "stable"}, "prettier": {"pin": "3"}, "go": {"pin": ""}}
+    "devenv": {"deno": {"channel": "stable"}, "prettier": {"pin": "3"}, "go": {"pin": ""}}
   }
 }`
 	if err := os.WriteFile(filepath.Join(devDir, "devcontainer.json"), []byte(config), 0o644); err != nil {

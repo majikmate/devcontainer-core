@@ -11,15 +11,15 @@ func TestReadDockerfile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "Dockerfile")
 	content := `# comment: FROM ignored
-FROM golang:1.27-trixie AS devcon
-RUN go build ./cmd/devcon
+FROM golang:1.27-trixie AS devenv
+RUN go build ./cmd/devenv
 FROM --platform=$BUILDPLATFORM buildpack-deps:trixie-curl
-COPY --from=devcon /out/devcon /usr/local/bin/devcon
-RUN devcon install os
+COPY --from=devenv /out/devenv /usr/local/bin/devenv
+RUN devenv install os
 ARG X
-RUN devcon install go \
+RUN devenv install go \
     node
-FROM devcon AS again
+FROM devenv AS again
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ FROM devcon AS again
 
 func TestReadDockerfileFinalBase(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "Dockerfile")
-	content := "FROM golang:1.27-trixie AS devcon\nFROM ghcr.io/majikmate/devcontainer-core:1\nRUN devcon install go\n"
+	content := "FROM golang:1.27-trixie AS devenv\nFROM ghcr.io/majikmate/devcontainer-core:1\nRUN devenv install go\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +63,9 @@ func TestReadDockerfileFinalBase(t *testing.T) {
 func TestExpand(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "Dockerfile")
 	content := `ARG DEBIAN_SERIES
-FROM debian:${DEBIAN_SERIES} AS devcon
+FROM debian:${DEBIAN_SERIES} AS devenv
 FROM debian:$DEBIAN_SERIES
-RUN devcon install os
+RUN devenv install os
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ ARG GO_PIN=1.27
 ARG GO_VERSION
 ARG PLAYWRIGHT_BROWSERS="chromium firefox webkit" OTHER='a b'
 ARG GO_PIN=1.28
-RUN devcon install go
+RUN devenv install go
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)

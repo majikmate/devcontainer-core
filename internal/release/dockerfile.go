@@ -14,7 +14,7 @@ import (
 type Dockerfile struct {
 	// BaseImages are the external images in FROM lines (not build stages).
 	BaseImages []string
-	// Layers are the layers of "devcon install" lines, in order.
+	// Layers are the layers of "devenv install" lines, in order.
 	Layers []string
 	// Args are the names of the ARG lines (all stages).
 	Args []string
@@ -120,7 +120,7 @@ func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 	case "RUN":
 		args := fields[1:]
 		for i := 0; i+1 < len(args); i++ {
-			if args[i] == "devcon" && args[i+1] == "install" {
+			if args[i] == "devenv" && args[i+1] == "install" {
 				for _, name := range args[i+2:] {
 					if name == "&&" || name == ";" {
 						break
