@@ -9,6 +9,7 @@
 //	devcon-release keep-alive  keep the scheduled workflow enabled
 //	devcon-release inspect     show the digest, labels and creation time of an image
 //	devcon-release module-release  create the next version tag of a Go module (no image)
+//	devcon-release prune       delete outdated versions of container packages (or whole packages)
 //
 // Defaults come from the environment of GitHub Actions (GITHUB_REPOSITORY,
 // GITHUB_SHA, GITHUB_TOKEN, ...).
@@ -33,7 +34,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release|prune [flags]")
 		os.Exit(2)
 	}
 	var err error
@@ -52,6 +53,8 @@ func main() {
 		err = inspect(os.Args[2:])
 	case "module-release":
 		err = moduleRelease(os.Args[2:])
+	case "prune":
+		err = prune(os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -201,6 +204,34 @@ func moduleRelease(args []string) error {
 	fs.Parse(args)
 	o.Token = os.Getenv("GITHUB_TOKEN")
 	return release.ModuleRelease(o)
+}
+
+func prune(args []string) error {
+	fs := flag.NewFlagSet("prune", flag.ExitOnError)
+	o := release.PruneOptions{}
+	fs.StringVar(&o.Org, "org", os.Getenv("GITHUB_REPOSITORY_OWNER"), "owner of the packages")
+	packages := fs.String("packages", "", "container packages, separated by spaces (default: the package of the repository)")
+	fs.IntVar(&o.Major, "major", 0, "current major version: versions of lower major lines are outdated (0: keep all)")
+	fs.BoolVar(&o.DeletePackages, "delete-packages", false, "delete the whole packages")
+	mode := fs.String("mode", "report", "report (list only) or apply (delete)")
+	fs.Parse(args)
+	switch *mode {
+	case "report":
+	case "apply":
+		o.Apply = true
+	default:
+		return fmt.Errorf("--mode must be report or apply, not %q", *mode)
+	}
+	o.Packages = strings.Fields(*packages)
+	if len(o.Packages) == 0 {
+		_, name, _ := strings.Cut(strings.ToLower(os.Getenv("GITHUB_REPOSITORY")), "/")
+		o.Packages = []string{name}
+	}
+	if o.Org == "" || o.Packages[0] == "" {
+		return fmt.Errorf("prune: --org and --packages are needed outside of GitHub Actions")
+	}
+	o.Token = os.Getenv("GITHUB_TOKEN")
+	return release.Prune(o)
 }
 
 func inspect(args []string) error {
