@@ -312,16 +312,26 @@ ghcr.io. Outdated are:
 - untagged versions that no kept image refers to (older builds whose tags
   moved to a newer build; the parts of a multi-architecture image are kept),
 - the tags `buildcache-*` of the former release workflow,
-- the versions of major lines below `major-version`.
+- the versions of major lines below `major-version`,
+- the releases of the current major line (for example `2.0.3` with
+  `2.0.3-amd64`, `2.0.3-arm64` and their parts) older than
+  `prune-max-age-days` (default 90 days).
 
-The input `prune` of the shared workflow decides what happens: `report` (the
-default) lists them in the run summary, `apply` deletes them, `off` skips the
-job. Deleting cannot be undone. When the references of a kept image cannot be
-read, no untagged version is deleted.
+Always kept: the newest release, every version with a moving tag (`2`,
+`2.0`, `latest`) and the parts of kept multi-architecture images. When the
+references of a kept image cannot be read, no untagged version is deleted.
+90 days leave time for users who pin a full version (for example during an
+exam period).
+
+The input `prune` of the shared workflow decides what happens: `apply` (the
+default) deletes them, `report` only lists them in the run summary, `off`
+skips the job. Deleting cannot be undone.
 
 Every image repository also has the manual workflow **Prune**
 (`.github/workflows/prune.yml`, **Actions → Prune → Run workflow**) with the
-modes `report` and `apply`. It calls the shared workflow
+modes `report` and `apply` and two scopes: `outdated` (the rules above) and
+`all-but-newest` (every release of the current major line except the newest;
+a one-time clean-up). It calls the shared workflow
 [`devcontainer-prune.yml`](.github/workflows/devcontainer-prune.yml) with the
 major version of the image:
 
@@ -333,6 +343,7 @@ jobs:
       packages: write
     with:
       mode: ${{ inputs.mode }}
+      scope: ${{ inputs.scope }}
       major-version: 2
 ```
 

@@ -20,6 +20,12 @@ type PruneOptions struct {
 	// Major is the current major version of the image: the versions of
 	// lower major lines are outdated (0: keep all major lines).
 	Major int
+	// MaxAgeDays: the releases of the current major line that are older
+	// are outdated; the newest release is always kept (0: keep all).
+	MaxAgeDays int
+	// AllButNewest: every release of the current major line except the
+	// newest is outdated (a one-time clean-up).
+	AllButNewest bool
 	// DeletePackages deletes the whole packages (for packages that are no
 	// longer published).
 	DeletePackages bool
@@ -41,17 +47,21 @@ type packageVersion struct {
 //   - untagged versions that no kept image refers to (older builds whose
 //     tags moved to a newer build),
 //   - the tags buildcache-* of the former release workflow,
-//   - the versions of major lines below the current major version.
+//   - the versions of major lines below the current major version,
+//   - the releases of the current major line older than MaxAgeDays (or,
+//     with AllButNewest, all but the newest release).
 //
 // A version that a kept image refers to (for example the image of one
-// architecture in a multi-architecture image) is never deleted.
+// architecture in a multi-architecture image) is never deleted, and neither
+// is the newest release or a version with a moving tag (2, 2.0, latest).
 func Prune(o PruneOptions) error {
 	gh := newGitHub(o.Token)
 	mode := "report only (nothing is deleted)"
 	if o.Apply {
 		mode = "delete"
 	}
-	report := []string{"### Outdated packages", "", "Mode: " + mode, ""}
+	rules := pruneRules{Major: o.Major, MaxAgeDays: o.MaxAgeDays, AllButNewest: o.AllButNewest, Now: time.Now()}
+	report := []string{"### Outdated packages", "", "Mode: " + mode, "", "Rules: " + rules.String(), ""}
 	var failures []string
 	for _, name := range o.Packages {
 		path := fmt.Sprintf("orgs/%s/packages/container/%s", o.Org, url.PathEscape(name))
@@ -68,7 +78,7 @@ func Prune(o PruneOptions) error {
 			failures = append(failures, fmt.Sprintf("%s: %v", name, err))
 			continue
 		}
-		outdated := outdatedVersions(versions, o.Major, func(digest string) ([]string, error) {
+		outdated := outdatedVersions(versions, rules, func(digest string) ([]string, error) {
 			return indexChildren(fmt.Sprintf("ghcr.io/%s/%s@%s", o.Org, name, digest))
 		})
 		report = append(report, fmt.Sprintf("**%s**: %d of %d versions outdated", name, len(outdated), len(versions)), "")
@@ -187,10 +197,11 @@ type outdatedVersion struct {
 // image); a version that a kept version refers to is kept. When the
 // references of a kept version cannot be read, no untagged version is
 // deleted.
-func outdatedVersions(versions []packageVersion, major int, children func(digest string) ([]string, error)) []outdatedVersion {
+func outdatedVersions(versions []packageVersion, rules pruneRules, children func(digest string) ([]string, error)) []outdatedVersion {
+	releases := currentReleases(versions, rules.Major)
 	reasons := map[string]string{}
 	for _, v := range versions {
-		if r := tagReason(v.Tags, major); r != "" {
+		if r := rules.tagReason(v.Tags, releases); r != "" {
 			reasons[v.Digest] = r
 		}
 	}
@@ -231,15 +242,97 @@ func outdatedVersions(versions []packageVersion, major int, children func(digest
 	return result
 }
 
-var versionTag = regexp.MustCompile(`^([0-9]+)(\.[0-9]+)*(-[a-z0-9]+)?$`)
+// pruneRules decide which tagged versions are outdated.
+type pruneRules struct {
+	Major        int // current major version (0: keep all major lines)
+	MaxAgeDays   int // releases of the current major line older than this (0: keep all)
+	AllButNewest bool
+	Now          time.Time
+}
 
-// tagReason returns why a tagged version is outdated ("" = keep): all its
-// tags are build cache tags or belong to a major line below major.
-func tagReason(tags []string, major int) string {
+func (r pruneRules) String() string {
+	var rules []string
+	if r.Major > 0 {
+		rules = append(rules, fmt.Sprintf("major versions below %d", r.Major))
+	}
+	rules = append(rules, "build cache tags", "untagged versions that no kept image uses")
+	switch {
+	case r.Major <= 0:
+	case r.AllButNewest:
+		rules = append(rules, fmt.Sprintf("all releases %d.x.y except the newest", r.Major))
+	case r.MaxAgeDays > 0:
+		rules = append(rules, fmt.Sprintf("releases %d.x.y older than %d days (the newest is kept)", r.Major, r.MaxAgeDays))
+	}
+	return strings.Join(rules, ", ")
+}
+
+var (
+	versionTag = regexp.MustCompile(`^([0-9]+)(\.[0-9]+)*(-[a-z0-9]+)?$`)
+	// releaseTag is the tag of one release: X.Y.Z, or X.Y.Z-<arch> for the
+	// image of one architecture
+	releaseTag = regexp.MustCompile(`^(([0-9]+)\.[0-9]+\.[0-9]+)(-[a-z0-9]+)?$`)
+)
+
+// releaseInfo describes the releases X.Y.Z of the current major line: when
+// each was created (its newest version) and which one is the newest.
+type releaseInfo struct {
+	created map[string]time.Time
+	newest  string
+}
+
+// currentReleases collects the releases of the major line major.
+func currentReleases(versions []packageVersion, major int) releaseInfo {
+	info := releaseInfo{created: map[string]time.Time{}}
+	if major <= 0 {
+		return info
+	}
+	for _, v := range versions {
+		for _, tag := range v.Tags {
+			m := releaseTag.FindStringSubmatch(tag)
+			if m == nil || m[2] != strconv.Itoa(major) {
+				continue
+			}
+			if v.Created.After(info.created[m[1]]) {
+				info.created[m[1]] = v.Created
+			}
+			if info.newest == "" || compareRelease(m[1], info.newest) > 0 {
+				info.newest = m[1]
+			}
+		}
+	}
+	return info
+}
+
+// compareRelease compares two versions X.Y.Z by their numbers: -1, 0 or 1.
+func compareRelease(a, b string) int {
+	x, y := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(x) && i < len(y); i++ {
+		p, _ := strconv.Atoi(x[i])
+		q, _ := strconv.Atoi(y[i])
+		if p != q {
+			if p < q {
+				return -1
+			}
+			return 1
+		}
+	}
+	return len(x) - len(y)
+}
+
+// tagReason returns why a tagged version is outdated ("" = keep):
+//
+//   - all its tags are build cache tags,
+//   - all its tags belong to a major line below the current one,
+//   - all its tags belong to one release of the current major line that is
+//     not the newest and is older than MaxAgeDays (or AllButNewest).
+//
+// A version with a moving tag (2, 2.0, latest) is always kept.
+func (r pruneRules) tagReason(tags []string, releases releaseInfo) string {
 	if len(tags) == 0 {
 		return ""
 	}
 	cache, old := true, true
+	release := ""
 	for _, tag := range tags {
 		if !strings.HasPrefix(tag, "buildcache-") {
 			cache = false
@@ -249,15 +342,27 @@ func tagReason(tags []string, major int) string {
 		if m != nil {
 			n, _ = strconv.Atoi(m[1])
 		}
-		if major <= 0 || n < 0 || n >= major {
+		if r.Major <= 0 || n < 0 || n >= r.Major {
 			old = false
+		}
+		// every tag must name the same release of the current major line
+		if rm := releaseTag.FindStringSubmatch(tag); rm != nil && rm[2] == strconv.Itoa(r.Major) && (release == "" || release == rm[1]) {
+			release = rm[1]
+		} else {
+			release = "-"
 		}
 	}
 	switch {
 	case cache:
 		return "build cache of the former release workflow"
 	case old:
-		return fmt.Sprintf("major version below %d", major)
+		return fmt.Sprintf("major version below %d", r.Major)
+	case r.Major <= 0 || release == "-" || release == "" || release == releases.newest:
+		return ""
+	case r.AllButNewest:
+		return fmt.Sprintf("release %s, not the newest release (%s)", release, releases.newest)
+	case r.MaxAgeDays > 0 && releases.created[release].Before(r.Now.AddDate(0, 0, -r.MaxAgeDays)):
+		return fmt.Sprintf("release %s, older than %d days", release, r.MaxAgeDays)
 	}
 	return ""
 }
