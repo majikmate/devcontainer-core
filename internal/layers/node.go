@@ -23,16 +23,15 @@ var nvmFiles = []string{"nvm.sh", "nvm-exec", "bash_completion"}
 func init() {
 	layer.Register(&layer.Layer{
 		Name:    "node",
-		Summary: "nvm, the newest Node.js LTS release, npm and pnpm",
+		Summary: "nvm, the newest Node.js LTS release and npm",
 		Needs:   []string{"user"},
 		Tools: []layer.Tool{
 			{Name: "nvm", Arg: "NVM_VERSION", Newest: func() (string, error) { return versions.GitHubRelease("nvm-sh/nvm") }},
 			{Name: "node", Arg: "NODE_VERSION", Newest: versions.NodeLTS},
-			{Name: "pnpm", Arg: "PNPM_VERSION", Newest: func() (string, error) { return versions.NPM("pnpm") }},
 		},
 		Install: installNode,
 		Test: func(t *layer.T) {
-			for _, cmd := range []string{"node", "npm", "npx", "pnpm", "make", "g++", "python3"} {
+			for _, cmd := range []string{"node", "npm", "npx", "make", "g++", "python3"} {
 				t.HasCommand(cmd)
 			}
 			t.Check("default Node.js is an LTS release", t.Output("node LTS", "node", "-p", "process.release.lts ? 'yes' : 'no'") == "yes")
@@ -40,7 +39,6 @@ func init() {
 			nvm := t.Output("nvm loads", "bash", "-c", `. "$NVM_DIR/nvm.sh" && nvm --version`)
 			t.Version("node", t.Output("node version", "node", "--version"))
 			t.Version("npm", t.Output("npm version", "npm", "--version"))
-			t.Version("pnpm", t.Output("pnpm version", "pnpm", "--version"))
 			t.Version("nvm", "v"+nvm)
 		},
 	})
@@ -59,12 +57,8 @@ func installNode(e *layer.Env) error {
 	if err != nil {
 		return err
 	}
-	pnpmVersion, err := e.Version("pnpm")
-	if err != nil {
-		return err
-	}
 	nvmVersion = "v" + strings.TrimPrefix(nvmVersion, "v")
-	sys.Logf("Installing nvm %s, Node.js %s, pnpm %s", nvmVersion, nodeVersion, pnpmVersion)
+	sys.Logf("Installing nvm %s, Node.js %s", nvmVersion, nodeVersion)
 
 	// The group nvm owns the nvm folder, so the development user can install
 	// Node.js versions and global npm packages.
@@ -105,11 +99,10 @@ umask 0002
 nvm install "$1"
 nvm alias default "$1"
 nvm use default
-npm install --global --no-fund --no-audit --no-update-notifier "pnpm@$2"
 nvm cache clear
 npm cache clean --force`
 	env := []string{"NVM_DIR=" + nvmDir, "NVM_SYMLINK_CURRENT=true"}
-	if err := sys.RunAs(user, env, "bash", "-c", script, "nvm-install", nodeVersion, pnpmVersion); err != nil {
+	if err := sys.RunAs(user, env, "bash", "-c", script, "nvm-install", nodeVersion); err != nil {
 		return err
 	}
 	if err := sys.ShareWithGroup(nvmDir, u.UID, group); err != nil {
