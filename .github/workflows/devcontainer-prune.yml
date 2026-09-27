@@ -6,7 +6,7 @@
 # buildcache-* of the former release workflow, and the versions of major lines
 # below major-version. The parts of kept multi-architecture images are never
 # deleted.
-name: Prune package versions
+name: "Shared: Prune package versions"
 
 on:
   workflow_call:

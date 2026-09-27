@@ -10,7 +10,7 @@
 #   build     build, label and test the image per architecture (devcon-release build)
 #   publish   multi-architecture tags and GitHub release (devcon-release publish)
 #   prune     list or delete the outdated package versions (devcon-release prune)
-name: Dev Container image
+name: "Shared: Dev Container image"
 
 on:
   workflow_call:
