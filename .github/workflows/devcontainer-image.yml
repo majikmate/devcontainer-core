@@ -156,6 +156,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: go -C .devcon run ./cmd/devcon-release keep-alive --workflow "$GITHUB_WORKFLOW_REF"
 
+      # The plan reads the tools and pin rules of the layers from the features
+      # library: the newest version, as in the nightly build of core
+      - name: Use the newest features
+        env:
+          # directly from GitHub: the list of the module proxy can lag behind a new tag
+          GOPROXY: direct
+        run: go -C .devcon get github.com/majikmate/devcontainer-features@latest
+
       - name: Plan
         id: plan
         env:
