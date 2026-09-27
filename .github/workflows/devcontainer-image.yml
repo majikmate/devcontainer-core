@@ -165,8 +165,11 @@ jobs:
       # library: the newest version, as in the nightly build of core
       - name: Use the newest features
         env:
-          # directly from GitHub: the list of the module proxy can lag behind a new tag
+          # directly from GitHub: the list of the module proxy can lag behind a
+          # new tag; our own modules need no lookup in the checksum database
+          # (sum.golang.org), so the plan does not depend on that service
           GOPROXY: direct
+          GONOSUMDB: github.com/majikmate/*
         run: go -C .devcon get github.com/majikmate/devcontainer-features@latest
 
       - name: Plan
