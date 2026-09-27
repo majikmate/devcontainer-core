@@ -138,13 +138,13 @@ func TestVersion(t *testing.T) {
 	}
 }
 
-func TestLegacyTool(t *testing.T) {
-	tool := Tool{Name: "old", Newest: func() (string, error) { return "1.0.0", nil }}
-	if v, err := tool.Resolve(Config{}, ""); err != nil || v != "1.0.0" {
-		t.Errorf("legacy = %q, %v", v, err)
+func TestNoSource(t *testing.T) {
+	tool := Tool{Name: "none"}
+	if _, err := tool.Resolve(Config{}, ""); err == nil {
+		t.Error("tool without a source: no error")
 	}
 	if _, err := tool.Effective(Config{Pin: "1"}); err == nil {
-		t.Error("legacy tool with a pin: no error")
+		t.Error("tool without a source, with a pin: no error")
 	}
 }
 

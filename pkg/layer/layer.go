@@ -47,12 +47,6 @@ type Tool struct {
 	// whether a release works with the version of that tool.
 	Follows string
 	Works   func(release, followed string) (bool, error)
-
-	// Deprecated: the version rule before Source, used only for a tool
-	// without Source (a features library that is not updated yet).
-	Newest    func() (string, error)
-	NewestFor func(version string) (string, error)
-	Pin       *Pin
 }
 
 // Layer is one installable part of an image.

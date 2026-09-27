@@ -27,16 +27,6 @@ func (e *EndOfLifeError) Error() string {
 	return msg
 }
 
-// Pin is the pin of a tool before Source and Config.
-//
-// Deprecated: a features library that is not updated yet still compiles with
-// it, but it has no effect. Use Tool.Source and Tool.Version.
-type Pin struct {
-	Arg, Example, Policy string
-	Newest               func(line string) (string, error)
-	Support              func(line string) error
-}
-
 // InLine reports whether a version belongs to a release line, for example
 // "1.27.3" and "go1.27.3" to "1.27", or "v24.9.0" to "24".
 func InLine(version, line string) bool {
