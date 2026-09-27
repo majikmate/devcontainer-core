@@ -9,6 +9,7 @@
 //
 //	devcon test [<layer>...]    test the installed layers (default: all)
 //	devcon metadata             print the label entries of the installed layers
+//	devcon check [<layer>...]   check the support of the installed layers (end of life)
 //
 // Container:
 //
@@ -20,6 +21,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -45,6 +47,8 @@ func main() {
 		err = test(args)
 	case "metadata":
 		err = metadata()
+	case "check":
+		err = check(args)
 	case "layers":
 		if len(args) > 0 && args[0] == "--markdown" {
 			markdownLayers()
@@ -74,6 +78,7 @@ func usage() {
   layers [--markdown]   list all layers (--markdown: documentation of all layers)
   test [<layer>...]     test the installed layers
   metadata              print the devcontainer.metadata entries of the installed layers
+  check [<layer>...]    check the support of the installed layers (for example the Debian release)
   start [<command>...]  run the start steps of the installed layers, then run <command>
 
 Commands of the layers:`)
@@ -101,6 +106,11 @@ func install(names []string) error {
 		fmt.Printf("\n=== Layer %s: %s ===\n", l.Name, l.Summary)
 		if err := l.Install(&layer.Env{Layer: l}); err != nil {
 			return fmt.Errorf("layer %s: %w", name, err)
+		}
+		if l.Check != nil {
+			if err := l.Check(); err != nil {
+				return fmt.Errorf("layer %s: %w", name, err)
+			}
 		}
 		if err := state.MarkInstalled(name); err != nil {
 			return err
@@ -134,6 +144,39 @@ func test(names []string) error {
 		return fmt.Errorf("failed layers: %s", strings.Join(failed, ", "))
 	}
 	fmt.Println("All layer tests passed.")
+	return nil
+}
+
+// check runs the support checks of layers (default: the installed layers)
+// and prints one line per layer with a check, for the release tool:
+//
+//	supported<TAB><layer>
+//	end-of-life<TAB><layer><TAB><message>
+//
+// An end of life is a result, not an error; an error means that the support
+// could not be checked.
+func check(names []string) error {
+	if len(names) == 0 {
+		names = state.Installed()
+	}
+	for _, name := range names {
+		l, err := layer.Get(name)
+		if err != nil {
+			return err
+		}
+		if l.Check == nil {
+			continue
+		}
+		err = l.Check()
+		if eol := (*layer.EndOfLifeError)(nil); errors.As(err, &eol) {
+			fmt.Printf("end-of-life\t%s\t%s\n", name, eol.Error())
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("layer %s: %w", name, err)
+		}
+		fmt.Printf("supported\t%s\n", name)
+	}
 	return nil
 }
 
@@ -274,8 +317,26 @@ func markdownLayers() {
 			fmt.Println("Tools with versions (the release workflow passes the newest version as build argument; without it the layer installs the newest version):")
 			fmt.Println()
 			for _, t := range l.Tools {
-				fmt.Printf("- %s: `%s`\n", t.Name, t.Arg)
+				fmt.Printf("- %s: `%s`", t.Name, t.Arg)
+				if t.Pin != nil {
+					fmt.Printf("; pin the release line with `%s` (for example `ARG %s=%s`): %s", t.Pin.Arg, t.Pin.Arg, t.Pin.Example, t.Pin.Policy)
+				}
+				if t.Follows != "" {
+					fmt.Printf("; follows %s: the newest version that works with the installed %s", t.Follows, t.Follows)
+				}
+				fmt.Println()
 			}
+			fmt.Println()
+			for _, t := range l.Tools {
+				if t.Pin != nil {
+					fmt.Println("With a pin, the layer installs the newest release inside the pinned line. When the line reaches its end of life, the build fails and names the supported lines.")
+					fmt.Println()
+					break
+				}
+			}
+		}
+		if l.Check != nil {
+			fmt.Println("Has a support check: the installation and the nightly release check fail when the installed release has reached its end of life (`devcon check`).")
 			fmt.Println()
 		}
 		if l.Start != nil {

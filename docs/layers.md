@@ -205,6 +205,8 @@ Dockerfile: `RUN devcon install os`
 
 Source: [devcontainer-core](https://github.com/majikmate/devcontainer-core) (`github.com/majikmate/devcontainer-core/pkg/layers`)
 
+Has a support check: the installation and the nightly release check fail when the installed release has reached its end of life (`devcon check`).
+
 Commands:
 
 - `devcon os-updates`: list the pending Debian package updates, --security: only security updates (root)

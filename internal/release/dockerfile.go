@@ -18,6 +18,9 @@ type Dockerfile struct {
 	Layers []string
 	// Args are the names of the ARG lines (all stages).
 	Args []string
+	// ArgDefaults are the default values of the ARG lines, for example
+	// GO_PIN=1.27 (the last ARG line with a default value wins).
+	ArgDefaults map[string]string
 	// FinalBase is the external image of the last FROM line ("" when the
 	// final stage starts from a build stage or from scratch).
 	FinalBase string
@@ -83,10 +86,16 @@ func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 			stages[args[2]] = true
 		}
 	case "ARG":
-		for _, arg := range fields[1:] {
-			name, _, _ := strings.Cut(arg, "=")
+		for _, arg := range splitQuoted(strings.TrimSpace(line)[len(fields[0]):]) {
+			name, value, hasValue := strings.Cut(arg, "=")
 			if !contains(d.Args, name) {
 				d.Args = append(d.Args, name)
+			}
+			if hasValue {
+				if d.ArgDefaults == nil {
+					d.ArgDefaults = map[string]string{}
+				}
+				d.ArgDefaults[name] = value
 			}
 		}
 	case "RUN":
@@ -103,6 +112,38 @@ func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 		}
 	}
 	return nil
+}
+
+// splitQuoted splits the words of an ARG line at white space outside of
+// quotes and removes the quotes: `A="x y" B=1` gives `A=x y` and `B=1`.
+func splitQuoted(s string) []string {
+	var words []string
+	var word strings.Builder
+	inWord := false
+	var quote rune
+	for _, r := range s {
+		switch {
+		case quote != 0 && r == quote:
+			quote = 0
+		case quote != 0:
+			word.WriteRune(r)
+		case r == '"' || r == '\'':
+			quote, inWord = r, true
+		case r == ' ' || r == '\t':
+			if inWord {
+				words = append(words, word.String())
+				word.Reset()
+				inWord = false
+			}
+		default:
+			word.WriteRune(r)
+			inWord = true
+		}
+	}
+	if inWord {
+		words = append(words, word.String())
+	}
+	return words
 }
 
 func contains(list []string, s string) bool {

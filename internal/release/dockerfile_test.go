@@ -57,3 +57,28 @@ func TestReadDockerfileFinalBase(t *testing.T) {
 		t.Errorf("final base = %q", d.FinalBase)
 	}
 }
+
+func TestReadDockerfileArgDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "Dockerfile")
+	content := `FROM ghcr.io/majikmate/devcontainer-base:2
+ARG GO_PIN=1.27
+ARG GO_VERSION
+ARG PLAYWRIGHT_BROWSERS="chromium firefox webkit" OTHER='a b'
+ARG GO_PIN=1.28
+RUN devcon install go
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, err := ReadDockerfile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"GO_PIN", "GO_VERSION", "PLAYWRIGHT_BROWSERS", "OTHER"}; !reflect.DeepEqual(d.Args, want) {
+		t.Errorf("args = %v, want %v", d.Args, want)
+	}
+	want := map[string]string{"GO_PIN": "1.28", "PLAYWRIGHT_BROWSERS": "chromium firefox webkit", "OTHER": "a b"}
+	if !reflect.DeepEqual(d.ArgDefaults, want) {
+		t.Errorf("defaults = %v, want %v", d.ArgDefaults, want)
+	}
+}

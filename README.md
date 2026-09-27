@@ -55,6 +55,42 @@ Rules:
   (see [docs/layers.md](docs/layers.md) for the argument names).
 - A layer checks that the layers it needs are installed and stops the build otherwise.
 
+### Pinning a release line
+
+Some tools can be pinned to a release line with the build argument
+`<TOOL>_PIN`. The pin goes into the Dockerfile that installs the layer:
+
+```dockerfile
+ARG GO_PIN=1.27
+ARG GO_VERSION
+RUN devcon install go
+```
+
+- **With a pin**, the layer installs the newest release inside the line (for
+  example the newest Go 1.27.x). A new release inside the line gives a new
+  image version.
+- **Without a pin**, the layer installs the newest release.
+- **At the end of life** of the pinned line, the release check and the build
+  fail. There is no warning before; the failed build is the warning. The
+  message names the pinned line, when or why its support ended, the source of
+  this information and the supported lines, for example:
+
+  ```text
+  go 1.27 (GO_PIN=1.27) has reached its end of life (Go 1.29.0 was released; Go supports the two newest major releases).
+  Source: https://go.dev/doc/devel/release#policy. Change ARG GO_PIN in the Dockerfile to a supported version (supported: 1.28, 1.29).
+  ```
+
+The feature decides what a line is and when it ends (see
+[docs/layers.md](docs/layers.md)). Tools that depend on a pinned tool follow
+it: for example, the Go tools get the newest version that works with the
+installed Go version.
+
+The Debian release has the same kind of check (layer `os`): when the regular
+security support of the Debian release has ended (column `eol` of the Debian
+package `distro-info-data`; the later LTS support does not count), the build of
+core and the nightly check of core fail. The fix is a newer Debian release in
+the `FROM` lines of the core Dockerfile.
+
 The `.devcontainer/devcontainer.json` of the image repository keeps the VS Code
 settings of that image (extensions, settings). The release workflow writes them
 into the image label `devcontainer.metadata`, together with the settings of all layers.
@@ -103,9 +139,9 @@ The framework is public, so that layers in other repositories can use it
 
 | Package | Content |
 | ------- | ------- |
-| [`pkg/layer`](pkg/layer) | layer definition, registry, test helpers |
+| [`pkg/layer`](pkg/layer) | layer definition, registry, pinned release lines and end of life, test helpers |
 | [`pkg/sys`](pkg/sys) | commands, downloads with checksum, archives, users, files, groups |
-| [`pkg/debian`](pkg/debian) | Debian-specific: apt, pending package updates |
+| [`pkg/debian`](pkg/debian) | Debian-specific: apt, pending package updates, release dates |
 | [`pkg/shellrc`](pkg/shellrc) | settings for bash and zsh |
 | [`pkg/state`](pkg/state) | installed layers and development user of an image |
 | [`pkg/devcontainer`](pkg/devcontainer) | entries of the label `devcontainer.metadata` |
@@ -136,6 +172,7 @@ layers). Entries with the same id are not added twice.
 | `devcon layers [--markdown]` | anywhere               | lists the layers (`*` = installed in this image)         |
 | `devcon test [<layer>…]`   | built image              | tests the installed layers                               |
 | `devcon metadata`          | built image              | prints the label entries of the installed layers         |
+| `devcon check [<layer>…]`  | built image              | checks the support of the installed layers (end of life, for example of the Debian release) |
 | `devcon start [<cmd>…]`    | container start          | runs the start steps of the installed layers, then `<cmd>` |
 | `devcon ssh-keys`          | container (layer sshd)   | loads the SSH keys of the owner's GitHub account         |
 | `devcon sshd-start`        | container, root (layer sshd) | starts the SSH server                                |
@@ -234,7 +271,13 @@ with the current inputs:
 
 - `config`: the git tree of the configuration paths (for core also the Go source),
 - `image/<ref>`: the digest of every base image in the Dockerfile,
-- `tool/<name>`: the newest version of every tool of the layers in the Dockerfile.
+- `tool/<name>`: the newest version of every tool of the layers in the Dockerfile
+  (inside the pinned line when the Dockerfile sets `ARG <TOOL>_PIN=<line>`).
+
+**End of life.** Before it decides, the plan checks the pinned lines of the
+Dockerfile and, in the newest image, runs `devcon check` (for example the
+Debian release). A line at its end of life stops the run with an error; nothing
+is built or released until the Dockerfile changes.
 
 A new version is released when:
 
