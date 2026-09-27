@@ -1,8 +1,6 @@
 package layers
 
 import (
-	"strings"
-
 	"github.com/majikmate/devcontainer-core/pkg/debian"
 	"github.com/majikmate/devcontainer-core/pkg/layer"
 )
@@ -26,12 +24,7 @@ func init() {
 			for _, cmd := range []string{"make", "gcc", "g++", "python3"} {
 				t.HasCommand(cmd)
 			}
-			t.Version("gcc", lastWord(firstLine(t.Output("gcc version", "gcc", "--version"))))
+			t.Version("gcc", layer.LastWord(layer.FirstLine(t.Output("gcc version", "gcc", "--version"))))
 		},
 	})
-}
-
-func firstLine(s string) string {
-	line, _, _ := strings.Cut(s, "\n")
-	return line
 }

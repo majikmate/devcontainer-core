@@ -22,7 +22,7 @@ func init() {
 		Install: installGitHubCLI,
 		Test: func(t *layer.T) {
 			t.HasCommand("gh")
-			t.Version("gh", "v"+findVersion(t.Output("gh version", "gh", "--version"), `gh version ([0-9.]+)`))
+			t.Version("gh", "v"+layer.FindVersion(t.Output("gh version", "gh", "--version"), `gh version ([0-9.]+)`))
 		},
 	})
 }

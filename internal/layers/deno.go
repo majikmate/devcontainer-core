@@ -39,7 +39,7 @@ func init() {
 				_ = os.WriteFile(file, []byte("const n: number = 1 + 1;\nconsole.log(n);\n"), 0o644)
 				t.Check("run TypeScript with type check", t.Output("deno run", "deno", "run", "--check", file) == "2")
 			}
-			t.Version("deno", "v"+findVersion(t.Output("deno version", "deno", "--version"), `deno ([0-9.]+)`))
+			t.Version("deno", "v"+layer.FindVersion(t.Output("deno version", "deno", "--version"), `deno ([0-9.]+)`))
 		},
 	})
 }

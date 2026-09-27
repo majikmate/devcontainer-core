@@ -6,19 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 )
-
-// lastWord returns the last word of a text (for example the version in
-// "git version 2.47.3").
-func lastWord(s string) string {
-	fields := strings.Fields(s)
-	if len(fields) == 0 {
-		return ""
-	}
-	return fields[len(fields)-1]
-}
 
 // getWithTimeout downloads a small file with a short timeout and no retries
 // (for steps that must not delay the start of a container).

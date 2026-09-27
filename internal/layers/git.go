@@ -31,7 +31,7 @@ func init() {
 				t.Check(s[0]+" = "+s[1], value == s[1])
 			}
 			v, _ := sys.Output("git", "--version")
-			t.Version("git", lastWord(v))
+			t.Version("git", layer.LastWord(v))
 		},
 	})
 }

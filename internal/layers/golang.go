@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 
@@ -226,18 +225,9 @@ func testGo(t *layer.T) {
 	}
 
 	t.Version("go", strings.TrimPrefix(t.Output("go version", "go", "env", "GOVERSION"), "go"))
-	t.Version("gopls", findVersion(t.Output("gopls version", "gopls", "version"), `gopls (v[0-9.]+)`))
-	t.Version("dlv", "v"+findVersion(t.Output("dlv version", "dlv", "version"), `Version: ([0-9.]+)`))
-	t.Version("staticcheck", "v"+findVersion(t.Output("staticcheck version", "staticcheck", "-version"), `\(([0-9.]+)\)`))
-	t.Version("govulncheck", findVersion(t.Output("govulncheck version", "govulncheck", "-version"), `govulncheck@(v[0-9.]+)`))
-	t.Version("golangci-lint", "v"+findVersion(t.Output("golangci-lint version", "golangci-lint", "--version"), `version ([0-9.]+)`))
-}
-
-// findVersion returns the first group of pattern in text.
-func findVersion(text, pattern string) string {
-	m := regexp.MustCompile(pattern).FindStringSubmatch(text)
-	if len(m) < 2 {
-		return ""
-	}
-	return m[1]
+	t.Version("gopls", layer.FindVersion(t.Output("gopls version", "gopls", "version"), `gopls (v[0-9.]+)`))
+	t.Version("dlv", "v"+layer.FindVersion(t.Output("dlv version", "dlv", "version"), `Version: ([0-9.]+)`))
+	t.Version("staticcheck", "v"+layer.FindVersion(t.Output("staticcheck version", "staticcheck", "-version"), `\(([0-9.]+)\)`))
+	t.Version("govulncheck", layer.FindVersion(t.Output("govulncheck version", "govulncheck", "-version"), `govulncheck@(v[0-9.]+)`))
+	t.Version("golangci-lint", "v"+layer.FindVersion(t.Output("golangci-lint version", "golangci-lint", "--version"), `version ([0-9.]+)`))
 }
