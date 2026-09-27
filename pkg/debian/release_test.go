@@ -49,6 +49,24 @@ func TestSupportedReleases(t *testing.T) {
 	}
 }
 
+func TestReleased(t *testing.T) {
+	releases, _ := ParseDistroInfo(distroInfo)
+	series := func(rs []Release) []string {
+		var names []string
+		for _, r := range rs {
+			names = append(names, r.Series)
+		}
+		return names
+	}
+	// Newest first; forky and sid are not released
+	if got, want := series(Released(releases, day("2025-09-01"))), []string{"trixie", "bookworm", "bullseye"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("2025-09-01: %v, want %v", got, want)
+	}
+	if got, want := series(Released(releases, day("2025-08-01"))), []string{"bookworm", "bullseye"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("2025-08-01 (before trixie): %v, want %v", got, want)
+	}
+}
+
 func TestParseDistroInfoErrors(t *testing.T) {
 	if _, err := ParseDistroInfo("version,codename\n12,Bookworm\n"); err == nil {
 		t.Error("missing columns: no error")

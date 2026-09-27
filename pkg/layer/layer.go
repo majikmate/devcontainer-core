@@ -2,13 +2,13 @@
 // image (for example Go or the SSH server). Each layer declares:
 //
 //   - its build arguments (read from the environment during the build),
-//   - its tools with their version sources (for the release tool), and for
-//     a pinnable tool the rules of its release lines (see Pin),
+//   - its tools with their version sources and the release choice of the
+//     feature: pinned line and channel (see Tool, Source and Config),
 //   - its entry of the devcontainer.metadata label (VS Code extensions and
 //     settings, container options, lifecycle commands),
 //   - its installation and its test,
-//   - optionally a start step (run by "devcon start" when the container
-//     starts), its own devcon commands and a support check (Check).
+//   - optionally a start step (run by "devenv start" when the container
+//     starts), its own devenv commands and a support check (Check).
 //
 // The Debian-bound layers are in devcontainer-core, the distribution
 // independent layers in devcontainer-features.
@@ -32,18 +32,27 @@ type Arg struct {
 }
 
 // Tool is a tool that a layer installs in a version that the release tool
-// determines. The release tool passes the version as build argument Arg.
+// determines (see Resolve). The release tool passes the version as build
+// argument Arg.
 type Tool struct {
-	Name   string                 // name in the release notes, for example "go"
-	Arg    string                 // build argument, for example "GO_VERSION"
-	Newest func() (string, error) // newest version from the source that the layer installs from
-	// Pin makes the tool pinnable to a release line (optional, see Pin).
-	Pin *Pin
+	Name string // name in the release notes and in customizations.devenv, for example "go"
+	Arg  string // build argument, for example "GO_VERSION"
+	// Source lists the releases of the tool.
+	Source *Source
+	// Version is the release choice of the feature: pinned line and channel.
+	// Empty: the newest release of the default channel.
+	Version Config
 	// Follows names an earlier tool of the same layer whose version decides
-	// the version of this tool, for example gopls follows go. NewestFor
-	// returns the newest version that works with the version of that tool.
-	Follows   string
+	// the version of this tool, for example gopls follows go. Works reports
+	// whether a release works with the version of that tool.
+	Follows string
+	Works   func(release, followed string) (bool, error)
+
+	// Deprecated: the version rule before Source, used only for a tool
+	// without Source (a features library that is not updated yet).
+	Newest    func() (string, error)
 	NewestFor func(version string) (string, error)
+	Pin       *Pin
 }
 
 // Layer is one installable part of an image.
@@ -54,27 +63,27 @@ type Layer struct {
 	Args    []Arg
 	Tools   []Tool
 	// Metadata is the entry of this layer in the devcontainer.metadata label.
-	// The id is set automatically ("devcon/<name>").
+	// The id is set automatically ("devenv/<name>").
 	Metadata devcontainer.Entry
 	Install  func(*Env) error
 	Test     func(*T)
-	// Start runs when the container starts ("devcon start": the ENTRYPOINT
+	// Start runs when the container starts ("devenv start": the ENTRYPOINT
 	// for docker run, postStartCommand for the Dev Containers extension and
 	// Codespaces). It runs as root or as the development user; a failure is
 	// reported but does not stop the container.
 	Start func() error
-	// Commands are devcon commands of this layer ("devcon <name> [args]").
+	// Commands are devenv commands of this layer ("devenv <name> [args]").
 	Commands []Command
 	// Check verifies that what the layer installed is still supported, for
 	// example the Debian release (layer os). It returns an *EndOfLifeError
-	// at the end of life. "devcon install" runs it after the installation;
-	// the release tool runs it in the newest image ("devcon check").
+	// at the end of life. "devenv install" runs it after the installation;
+	// the release tool runs it in the newest image ("devenv check").
 	Check func() error
 	// Package is the Go package that registered the layer (set by Register).
 	Package string
 }
 
-// Command is a devcon command that a layer provides.
+// Command is a devenv command that a layer provides.
 type Command struct {
 	Name    string
 	Summary string
@@ -86,7 +95,7 @@ func (l *Layer) Entry() devcontainer.Entry {
 	if len(l.Metadata) == 0 {
 		return nil
 	}
-	entry := devcontainer.Entry{"id": "devcon/" + l.Name}
+	entry := devcontainer.Entry{"id": "devenv/" + l.Name}
 	for k, v := range l.Metadata {
 		entry[k] = v
 	}
@@ -109,7 +118,7 @@ func (e *Env) Arg(name string) string {
 		}
 	}
 	for _, t := range e.Layer.Tools {
-		if t.Arg == name || (t.Pin != nil && t.Pin.Arg == name) {
+		if t.Arg == name {
 			return ""
 		}
 	}
@@ -118,25 +127,25 @@ func (e *Env) Arg(name string) string {
 
 // Version returns the version of a tool from its build argument (the release
 // workflow passes it). Without a build argument (for example in a local
-// build) it checks the pinned line and asks the version source. A version
-// outside the pinned line and a pinned line at its end of life are errors.
+// build) it resolves the version with the configuration of the feature
+// (Tool.Version; the overrides of an image are known only to the release
+// plan). A pinned line at its end of life is an error.
 func (e *Env) Version(tool string) (string, error) {
 	for i := range e.Layer.Tools {
 		t := &e.Layer.Tools[i]
 		if t.Name != tool {
 			continue
 		}
-		line := ""
-		if t.Pin != nil {
-			line = os.Getenv(t.Pin.Arg)
-		}
+		// The release plan resolved the version (with the configuration of
+		// the feature and of the image), so the build takes it as it is.
 		if v := os.Getenv(t.Arg); v != "" && v != "latest" {
-			if line != "" && !InLine(v, line) {
-				return "", fmt.Errorf("%s=%s is not in the pinned line %s=%s", t.Arg, v, t.Pin.Arg, line)
-			}
 			return v, nil
 		}
-		if err := t.CheckPin(line); err != nil {
+		c, err := t.Effective(t.Version)
+		if err != nil {
+			return "", err
+		}
+		if err := t.CheckSupport(c); err != nil {
 			return "", err
 		}
 		followed := ""
@@ -147,7 +156,7 @@ func (e *Env) Version(tool string) (string, error) {
 			}
 			followed = v
 		}
-		v, err := t.NewestVersion(line, followed)
+		v, err := t.Resolve(c, followed)
 		if err != nil {
 			return "", fmt.Errorf("newest version of %s: %w", tool, err)
 		}
@@ -185,7 +194,7 @@ func packageOf(function string) string {
 func Get(name string) (*Layer, error) {
 	l, ok := registry[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown layer %q (see: devcon layers)", name)
+		return nil, fmt.Errorf("unknown layer %q (see: devenv layers)", name)
 	}
 	return l, nil
 }

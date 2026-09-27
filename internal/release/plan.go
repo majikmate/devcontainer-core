@@ -20,12 +20,13 @@ import (
 	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
 	"github.com/majikmate/devcontainer-core/pkg/layer"
 	"github.com/majikmate/devcontainer-core/pkg/sys"
+	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
 // Labels in which an image records the inputs of its build.
 const (
-	LabelInputs      = "devcon.inputs"
-	LabelFingerprint = "devcon.fingerprint"
+	LabelInputs      = "devenv.inputs"
+	LabelFingerprint = "devenv.fingerprint"
 )
 
 // defaultConfigPaths are the configuration paths of an image repository: the
@@ -66,6 +67,33 @@ type Project struct {
 	DevcontainerDir string
 	Dockerfile      string
 	Context         string
+	// Tools overrides the release configuration of the features for this
+	// image (customizations.devenv.<tool>).
+	Tools map[string]ToolConfig
+}
+
+// ToolConfig is the release configuration of a tool in the devcontainer.json
+// of the image that installs its layer. It overrides the configuration of
+// the feature:
+//
+//	"customizations": {"devenv": {"deno": {"pin": "2", "channel": "stable"}}}
+//
+// "pin": "" removes the pin of the feature (the newest release).
+type ToolConfig struct {
+	Pin     *string `json:"pin"`
+	Channel string  `json:"channel"`
+}
+
+// apply returns the configuration of the feature with the overrides of the
+// image.
+func (c ToolConfig) apply(feature layer.Config) layer.Config {
+	if c.Pin != nil {
+		feature.Pin = *c.Pin
+	}
+	if c.Channel != "" {
+		feature.Channel = c.Channel
+	}
+	return feature
 }
 
 // ReadProject reads build.dockerfile and build.context of .devcontainer/devcontainer.json.
@@ -80,6 +108,9 @@ func ReadProject(dir string) (*Project, error) {
 			Dockerfile string `json:"dockerfile"`
 			Context    string `json:"context"`
 		} `json:"build"`
+		Customizations struct {
+			Devenv map[string]ToolConfig `json:"devenv"`
+		} `json:"customizations"`
 	}
 	if err := json.Unmarshal(devcontainer.StripJSONC(data), &config); err != nil {
 		return nil, fmt.Errorf("devcontainer.json: %w", err)
@@ -95,6 +126,7 @@ func ReadProject(dir string) (*Project, error) {
 		DevcontainerDir: devDir,
 		Dockerfile:      filepath.Join(devDir, config.Build.Dockerfile),
 		Context:         filepath.Clean(filepath.Join(devDir, config.Build.Context)),
+		Tools:           config.Customizations.Devenv,
 	}, nil
 }
 
@@ -133,15 +165,13 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 	if err := add("config", config); err != nil {
 		return nil, err
 	}
-	// 2. Base images: the digest of each FROM image
-	for _, image := range dockerfile.BaseImages {
-		if err := add("image/"+image, imageDigest(image)); err != nil {
-			return nil, err
-		}
-	}
-	// 3. Tools: the newest versions of the tools of the installed layers,
-	// inside the pinned release lines (ARG <TOOL>_PIN=<line>); a pinned line
-	// at its end of life stops the release
+	// 2. Tools: the versions of the tools of the installed layers, chosen by
+	// the general rule of layer.Tool.Resolve with the configuration of the
+	// feature (Tool.Version) and the overrides of the image (devcontainer.json,
+	// customizations.devenv); a pinned line at its end of life and an unknown
+	// channel stop the release. The line and the channel are recorded as
+	// inputs, so the release notes show them.
+	configured := map[string]bool{}
 	for _, name := range dockerfile.Layers {
 		l, err := layer.Get(name)
 		if err != nil {
@@ -150,34 +180,61 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 		for i := range l.Tools {
 			tool := &l.Tools[i]
 			key := "tool/" + tool.Name
-			line := ""
-			if tool.Pin != nil {
-				line = dockerfile.ArgDefaults[tool.Pin.Arg]
+			choice := tool.Version
+			if c, ok := project.Tools[tool.Name]; ok {
+				choice = c.apply(choice)
+				configured[tool.Name] = true
 			}
-			if err := tool.CheckPin(line); err != nil {
-				if eol := (*layer.EndOfLifeError)(nil); errors.As(err, &eol) {
-					return nil, fmt.Errorf("%s: %w", project.Dockerfile, err)
-				}
-				warning("Could not check the support of %s %s: %v", tool.Name, line, err)
-			}
-			version, err := tool.NewestVersion(line, p.ToolVersion[tool.Follows])
+			choice, err := tool.Effective(choice)
 			if err != nil {
-				warning("Could not read the newest version of %s: %v", tool.Name, err)
+				return nil, fmt.Errorf("configuration of %s: %w", tool.Name, err)
+			}
+			if err := tool.CheckSupport(choice); err != nil {
+				if eol := (*layer.EndOfLifeError)(nil); errors.As(err, &eol) {
+					return nil, err
+				}
+				warning("Could not check the support of %s %s: %v", tool.Name, choice.Pin, err)
+			}
+			for _, v := range []struct{ kind, value string }{{"pin", choice.Pin}, {"channel", choice.Channel}} {
+				if v.value != "" {
+					if err := add(v.kind+"/"+tool.Name, v.value); err != nil {
+						return nil, err
+					}
+				}
+			}
+			version, err := tool.Resolve(choice, p.ToolVersion[tool.Follows])
+			if err != nil {
+				warning("Could not read the version of %s: %v", tool.Name, err)
 				version = ""
 			}
 			if err := add(key, version); err != nil {
 				return nil, err
 			}
-			if line != "" && !layer.InLine(p.Inputs[key], line) {
-				return nil, fmt.Errorf("%s: no version of %s in the pinned line %s=%s (found %s)", project.Dockerfile, tool.Name, tool.Pin.Arg, line, p.Inputs[key])
+			if choice.Pin != "" && !layer.InLine(p.Inputs[key], choice.Pin) {
+				return nil, fmt.Errorf("no version of %s in the pinned line %s (found %s)", tool.Name, choice.Pin, p.Inputs[key])
 			}
 			p.BuildArgs[tool.Arg] = p.Inputs[key]
 			p.ToolVersion[tool.Name] = p.Inputs[key]
 		}
 	}
+	for name := range project.Tools {
+		if !configured[name] {
+			return nil, fmt.Errorf("devcontainer.json: customizations.devenv.%s: the Dockerfile installs no layer with the tool %s", name, name)
+		}
+	}
+	// 3. Base images: the digest of each FROM image, with the build
+	// arguments of the tools (for example debian:${DEBIAN_SERIES})
+	if err := dockerfile.Expand(p.BuildArgs); err != nil {
+		return nil, fmt.Errorf("%s: %w", project.Dockerfile, err)
+	}
+	for _, image := range dockerfile.BaseImages {
+		if err := add("image/"+image, imageDigest(image)); err != nil {
+			return nil, err
+		}
+	}
 
 	// 4. Features: the newest version of devcontainer-features, when the
-	// Dockerfile builds devcon with it (core)
+	// Dockerfile builds devenv with it (core)
 	if contains(dockerfile.Args, FeaturesArg) {
 		version, err := newestTag(FeaturesRepository)
 		if err != nil {
@@ -187,6 +244,35 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 			return nil, err
 		}
 		p.BuildArgs[FeaturesArg] = p.Inputs["tool/features"]
+	}
+	// The Go that builds devenv (core): the newest release of the Go line in
+	// go.mod (go directive, for example 1.27 → 1.27.1). It is not the Go of
+	// the feature go. The end of life of the line stops the release.
+	if contains(dockerfile.Args, ToolchainArg) {
+		line, err := goModLine(filepath.Join(o.Dir, "go.mod"))
+		if err != nil {
+			return nil, err
+		}
+		toolchain := layer.Tool{Name: ToolchainName, Arg: ToolchainArg, Source: versions.GoReleases(), Version: layer.Config{Pin: line}}
+		if err := toolchain.CheckSupport(toolchain.Version); err != nil {
+			if eol := (*layer.EndOfLifeError)(nil); errors.As(err, &eol) {
+				eol.Change = "the go line in go.mod"
+				return nil, eol
+			}
+			warning("Could not check the support of Go %s: %v", line, err)
+		}
+		version, err := toolchain.Resolve(toolchain.Version, "")
+		if err != nil {
+			warning("Could not read the newest release of Go %s: %v", line, err)
+			version = ""
+		}
+		if err := add("pin/"+ToolchainName, line); err != nil {
+			return nil, err
+		}
+		if err := add("tool/"+ToolchainName, version); err != nil {
+			return nil, err
+		}
+		p.BuildArgs[ToolchainArg] = p.Inputs["tool/"+ToolchainName]
 	}
 
 	// 5. Pending Debian updates of the newest image (not for pull requests
@@ -300,12 +386,34 @@ func nextVersion(last string, major int, step string) string {
 	}
 }
 
-// The features library: the core Dockerfile builds devcon with the version
+// The features library: the core Dockerfile builds devenv with the version
 // in the build argument FEATURES_VERSION.
 const (
 	FeaturesRepository = "https://github.com/majikmate/devcontainer-features"
 	FeaturesArg        = "FEATURES_VERSION"
 )
+
+// The Go that builds devenv: the core Dockerfile uses the build argument
+// DEVENV_GO_VERSION (GOTOOLCHAIN=go<version>); the plan records it as the
+// tool devenv-go.
+const (
+	ToolchainArg  = "DEVENV_GO_VERSION"
+	ToolchainName = "devenv-go"
+)
+
+// goModLine returns the Go line of the go directive of a go.mod file, for
+// example "1.27" for "go 1.27" or "go 1.27.0".
+func goModLine(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	m := regexp.MustCompile(`(?m)^go\s+([0-9][0-9.]*)\s*$`).FindStringSubmatch(string(data))
+	if m == nil {
+		return "", fmt.Errorf("%s has no go directive", path)
+	}
+	return versions.GoLine(m[1]), nil
+}
 
 // newestTag returns the highest version tag of a Git repository, for example
 // "v1.0.3".

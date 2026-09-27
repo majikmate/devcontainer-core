@@ -14,13 +14,10 @@ import (
 type Dockerfile struct {
 	// BaseImages are the external images in FROM lines (not build stages).
 	BaseImages []string
-	// Layers are the layers of "devcon install" lines, in order.
+	// Layers are the layers of "devenv install" lines, in order.
 	Layers []string
 	// Args are the names of the ARG lines (all stages).
 	Args []string
-	// ArgDefaults are the default values of the ARG lines, for example
-	// GO_PIN=1.27 (the last ARG line with a default value wins).
-	ArgDefaults map[string]string
 	// FinalBase is the external image of the last FROM line ("" when the
 	// final stage starts from a build stage or from scratch).
 	FinalBase string
@@ -55,6 +52,35 @@ func ReadDockerfile(path string) (*Dockerfile, error) {
 	return result, scanner.Err()
 }
 
+// Expand replaces the build arguments ($NAME or ${NAME}) in the base images
+// with the values of the release plan, for example DEBIAN_SERIES of the layer
+// os. A Dockerfile never decides a version, so a build argument without a
+// value in args is an error (a default of the ARG line does not count).
+func (d *Dockerfile) Expand(args map[string]string) error {
+	var missing []string
+	expand := func(image string) string {
+		return os.Expand(image, func(name string) string {
+			v, ok := args[name]
+			if !ok && !contains(missing, name) {
+				missing = append(missing, name)
+			}
+			return v
+		})
+	}
+	var images []string
+	for _, image := range d.BaseImages {
+		if image = expand(image); !contains(images, image) {
+			images = append(images, image)
+		}
+	}
+	d.BaseImages = images
+	d.FinalBase = expand(d.FinalBase)
+	if len(missing) > 0 {
+		return fmt.Errorf("FROM uses the build arguments %s, which no tool of the installed layers sets", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
@@ -69,10 +95,9 @@ func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 		if len(args) == 0 {
 			return fmt.Errorf("FROM without image")
 		}
+		// The image can contain build arguments, for example
+		// debian:${DEBIAN_SERIES}; see Expand.
 		image := args[0]
-		if strings.Contains(image, "$") {
-			return fmt.Errorf("FROM with a variable is not supported: %s", image)
-		}
 		external := !stages[image] && image != "scratch"
 		if external && !contains(d.BaseImages, image) {
 			d.BaseImages = append(d.BaseImages, image)
@@ -87,21 +112,15 @@ func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 		}
 	case "ARG":
 		for _, arg := range splitQuoted(strings.TrimSpace(line)[len(fields[0]):]) {
-			name, value, hasValue := strings.Cut(arg, "=")
+			name, _, _ := strings.Cut(arg, "=")
 			if !contains(d.Args, name) {
 				d.Args = append(d.Args, name)
-			}
-			if hasValue {
-				if d.ArgDefaults == nil {
-					d.ArgDefaults = map[string]string{}
-				}
-				d.ArgDefaults[name] = value
 			}
 		}
 	case "RUN":
 		args := fields[1:]
 		for i := 0; i+1 < len(args); i++ {
-			if args[i] == "devcon" && args[i+1] == "install" {
+			if args[i] == "devenv" && args[i+1] == "install" {
 				for _, name := range args[i+2:] {
 					if name == "&&" || name == ";" {
 						break

@@ -35,7 +35,7 @@ func TestCheckDebianRelease(t *testing.T) {
 	if !errors.As(err, &eol) {
 		t.Fatalf("bookworm at its eol: err = %v, want an EndOfLifeError", err)
 	}
-	for _, part := range []string{"Debian 12 (bookworm) has reached its end of life", "ended on 2026-06-10", "supported: 13 (trixie)", "FROM lines"} {
+	for _, part := range []string{"Debian 12 (bookworm) has reached its end of life", "ended on 2026-06-10", "supported: 13 (trixie)", "customizations.devenv.debian.pin"} {
 		if !strings.Contains(err.Error(), part) {
 			t.Errorf("message %q does not contain %q", err, part)
 		}

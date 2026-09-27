@@ -5,10 +5,10 @@
 // Dev Containers extension and Codespaces read it from the image and merge the
 // entries in order. Our images add entries of two kinds:
 //
-//   - one entry per installed layer (id "devcon/<layer>"), declared as data in
+//   - one entry per installed layer (id "devenv/<layer>"), declared as data in
 //     the layer: its VS Code extensions and settings, container options and
 //     lifecycle commands;
-//   - one entry per image (id "devcon/image/<repository>") with the settings of
+//   - one entry per image (id "devenv/image/<repository>") with the settings of
 //     its .devcontainer/devcontainer.json.
 package devcontainer
 
@@ -70,6 +70,14 @@ func ImageEntry(id string, devcontainerJSON []byte) (Entry, error) {
 	for key, value := range config {
 		if allowedProperties[key] {
 			entry[key] = value
+		}
+	}
+	// customizations.devenv is the release configuration of the image (read
+	// by the release plan); the label records the result as inputs instead.
+	if c, ok := entry["customizations"].(map[string]any); ok {
+		delete(c, "devenv")
+		if len(c) == 0 {
+			delete(entry, "customizations")
 		}
 	}
 	return entry, nil

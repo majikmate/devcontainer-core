@@ -9,13 +9,13 @@ import (
 )
 
 // pendingUpdates returns the pending Debian package updates of an image: it
-// starts the image as root and runs "devcon os-updates" (layer os). The
+// starts the image as root and runs "devenv os-updates" (layer os). The
 // command only simulates the upgrade; the image is not changed. Debian stable
 // receives only fixes (security archive, stable-updates, point releases), so
 // every pending update counts.
 func pendingUpdates(image string) ([]debian.Update, error) {
 	out, err := sys.Output("docker", "run", "--rm", "--pull", "always", "--user", "root",
-		"--entrypoint", "devcon", image, "os-updates")
+		"--entrypoint", "devenv", image, "os-updates")
 	if err != nil {
 		return nil, err
 	}

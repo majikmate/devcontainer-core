@@ -20,7 +20,7 @@ import (
 // SSHPort is the port of the SSH server.
 const SSHPort = "2222"
 
-const sshdConfig = `# SSH server of the Dev Container images (devcon layer sshd).
+const sshdConfig = `# SSH server of the Dev Container images (devenv layer sshd).
 # This file comes first in the Include order, and the first value of a
 # setting wins, so these settings cannot be weakened by later files.
 Port ` + SSHPort + `
@@ -40,7 +40,7 @@ func init() {
 		Needs:   []string{"user"},
 		Metadata: devcontainer.Entry{
 			// VS Code copies ~/.gitconfig (with github.user) when it connects
-			"postAttachCommand": "devcon ssh-keys",
+			"postAttachCommand": "devenv ssh-keys",
 		},
 		Start: startSSH,
 		Commands: []layer.Command{
@@ -51,7 +51,7 @@ func init() {
 			if err := debian.AptInstall("openssh-server"); err != nil {
 				return err
 			}
-			if err := sys.WriteFile("/etc/ssh/sshd_config.d/00-devcon.conf", sshdConfig, 0o644); err != nil {
+			if err := sys.WriteFile("/etc/ssh/sshd_config.d/00-devenv.conf", sshdConfig, 0o644); err != nil {
 				return err
 			}
 			// No host keys in the image: each container creates its own
@@ -70,7 +70,7 @@ func init() {
 func testSSHD(t *layer.T) {
 	keys, _ := filepath.Glob("/etc/ssh/ssh_host_*")
 	t.Check("no host keys in the image", len(keys) == 0)
-	t.Command("server starts", "sudo", "-n", "devcon", "sshd-start")
+	t.Command("server starts", "sudo", "-n", "devenv", "sshd-start")
 	config := t.Output("effective configuration", "sudo", "-n", "/usr/sbin/sshd", "-T")
 	for _, line := range []string{"port " + SSHPort, "permitrootlogin no", "passwordauthentication no", "kbdinteractiveauthentication no"} {
 		t.Check(line, containsLine(config, line))
@@ -99,11 +99,11 @@ func testSSHD(t *layer.T) {
 		_ = os.Remove(authorized)
 	}
 
-	cmd := exec.Command("devcon", "ssh-keys")
+	cmd := exec.Command("devenv", "ssh-keys")
 	cmd.Env = append(filterEnv(os.Environ(), "GITHUB_USER", "HOME"), "HOME=/nonexistent")
 	out, _ := cmd.CombinedOutput()
 	t.Check("no GitHub user: keys unchanged", strings.Contains(string(out), "no GitHub user"))
-	cmd = exec.Command("devcon", "ssh-keys")
+	cmd = exec.Command("devenv", "ssh-keys")
 	cmd.Env = append(filterEnv(os.Environ(), "GITHUB_USER"), "GITHUB_USER=x;y")
 	out, _ = cmd.CombinedOutput()
 	t.Check("invalid GitHub user name rejected", strings.Contains(string(out), "invalid GitHub user name"))
@@ -116,7 +116,7 @@ func testSSHD(t *layer.T) {
 // at the first start. Needs root.
 func SSHDStart() error {
 	if !sys.IsRoot() {
-		return fmt.Errorf("sshd-start needs root (sudo devcon sshd-start)")
+		return fmt.Errorf("sshd-start needs root (sudo devenv sshd-start)")
 	}
 	if err := sys.Run(nil, "ssh-keygen", "-A"); err != nil {
 		return err
@@ -150,17 +150,17 @@ func LoadSSHKeys() error {
 	}
 	name := githubUser(u)
 	if name == "" {
-		fmt.Println("devcon ssh-keys: no GitHub user known (GITHUB_USER or git config github.user); keys unchanged.")
+		fmt.Println("devenv ssh-keys: no GitHub user known (GITHUB_USER or git config github.user); keys unchanged.")
 		return nil
 	}
 	if !githubUserName.MatchString(name) {
-		fmt.Printf("devcon ssh-keys: invalid GitHub user name %q; keys unchanged.\n", name)
+		fmt.Printf("devenv ssh-keys: invalid GitHub user name %q; keys unchanged.\n", name)
 		return nil
 	}
 	data, err := getWithTimeout("https://github.com/"+name+".keys", 10*time.Second)
 	keys := strings.TrimSpace(string(data))
 	if err != nil || keys == "" {
-		fmt.Printf("devcon ssh-keys: no keys received for GitHub user %s; keys unchanged.\n", name)
+		fmt.Printf("devenv ssh-keys: no keys received for GitHub user %s; keys unchanged.\n", name)
 		return nil
 	}
 	dir := filepath.Join(u.Home, ".ssh")
@@ -181,7 +181,7 @@ func LoadSSHKeys() error {
 	if err := os.Rename(tmp, filepath.Join(dir, "authorized_keys")); err != nil {
 		return err
 	}
-	fmt.Printf("devcon ssh-keys: %d key(s) of GitHub user %s loaded.\n", len(strings.Split(keys, "\n")), name)
+	fmt.Printf("devenv ssh-keys: %d key(s) of GitHub user %s loaded.\n", len(strings.Split(keys, "\n")), name)
 	return nil
 }
 
@@ -213,7 +213,7 @@ func startSSH() error {
 	if sys.IsRoot() {
 		err = SSHDStart()
 	} else {
-		err = sys.Run(nil, "sudo", "-n", "devcon", "sshd-start")
+		err = sys.Run(nil, "sudo", "-n", "devenv", "sshd-start")
 	}
 	if err != nil {
 		err = fmt.Errorf("the SSH server did not start: %w", err)
