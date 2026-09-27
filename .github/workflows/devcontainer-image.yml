@@ -9,6 +9,7 @@
 #   prepare   collect the inputs, decide, compute the version (devcon-release plan)
 #   build     build, label and test the image per architecture (devcon-release build)
 #   publish   multi-architecture tags and GitHub release (devcon-release publish)
+#   prune     list or delete the outdated package versions (devcon-release prune)
 name: Dev Container image
 
 on:
@@ -54,6 +55,10 @@ on:
         description: Names of the repositories whose images this image builds on, separated by spaces
         type: string
         default: ""
+      prune:
+        description: "Outdated package versions (untagged and not used, buildcache-*, major versions below major-version): report (list them in the run summary), apply (delete them) or off"
+        type: string
+        default: report
     secrets:
       app-client-id:
         description: Client ID of the GitHub App that starts the upstream workflows (only with update-upstream)
@@ -302,3 +307,33 @@ jobs:
           --reason "$REASON"
           --inputs "$INPUTS"
           --outputs "$GITHUB_WORKSPACE/test-output"
+
+  prune:
+    name: Outdated package versions
+    needs: [prepare, publish]
+    if: ${{ !cancelled() && !failure() && github.event_name != 'pull_request' && inputs.prune != 'off' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - name: Check out the tooling
+        uses: actions/checkout@v7
+        with:
+          repository: majikmate/devcontainer-core
+          ref: ${{ env.TOOLING_REF }}
+          path: .devcon
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .devcon/go.mod
+          cache: false
+
+      - name: List or delete the outdated versions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          go -C .devcon run ./cmd/devcon-release prune
+          --major "${{ inputs.major-version }}"
+          --mode "${{ inputs.prune }}"

@@ -305,6 +305,20 @@ Node.js or Deno changes, otherwise patch. The major version is set in
 Tags: `X.Y.Z`, `X.Y`, `X` and `latest`. Pull requests build and test the image
 without a release.
 
+**Outdated package versions.** After every run (not for pull requests), the job
+`prune` (`devcon-release prune`) looks at the versions of the image package on
+ghcr.io. Outdated are:
+
+- untagged versions that no kept image refers to (older builds whose tags
+  moved to a newer build; the parts of a multi-architecture image are kept),
+- the tags `buildcache-*` of the former release workflow,
+- the versions of major lines below `major-version`.
+
+The input `prune` of the shared workflow decides what happens: `report` (the
+default) lists them in the run summary, `apply` deletes them, `off` skips the
+job. Deleting cannot be undone. When the references of a kept image cannot be
+read, no untagged version is deleted.
+
 ### Schedule and chain build
 
 The nightly checks run in chain order (UTC): core 23:17, base 01:17,
