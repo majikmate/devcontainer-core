@@ -217,6 +217,7 @@ func prune(args []string) error {
 	fs.BoolVar(&o.DeletePackages, "delete-packages", false, "delete the whole packages")
 	fs.StringVar(&o.Repository, "repository", os.Getenv("GITHUB_REPOSITORY"), "repository (owner/name) whose old workflow runs are deleted")
 	fs.IntVar(&o.RunsMaxAgeDays, "runs-max-age-days", 0, "finished workflow runs (any result) of the repository older than this are deleted; with --all-but-newest all but the newest run of each workflow (0: keep all)")
+	runsOnly := fs.Bool("runs-only", false, "only the workflow runs, no package (for a repository without an image)")
 	mode := fs.String("mode", "report", "report (list only) or apply (delete)")
 	fs.Parse(args)
 	switch *mode {
@@ -226,6 +227,13 @@ func prune(args []string) error {
 	default:
 		return fmt.Errorf("--mode must be report or apply, not %q", *mode)
 	}
+	o.Token = os.Getenv("GITHUB_TOKEN")
+	if *runsOnly {
+		if o.Repository == "" || o.RunsMaxAgeDays <= 0 {
+			return fmt.Errorf("prune: --runs-only needs --repository and --runs-max-age-days")
+		}
+		return release.Prune(o)
+	}
 	o.Packages = strings.Fields(*packages)
 	if len(o.Packages) == 0 {
 		_, name, _ := strings.Cut(strings.ToLower(os.Getenv("GITHUB_REPOSITORY")), "/")
@@ -234,7 +242,6 @@ func prune(args []string) error {
 	if o.Org == "" || o.Packages[0] == "" {
 		return fmt.Errorf("prune: --org and --packages are needed outside of GitHub Actions")
 	}
-	o.Token = os.Getenv("GITHUB_TOKEN")
 	return release.Prune(o)
 }
 

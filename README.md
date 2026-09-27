@@ -265,7 +265,9 @@ Every repository also has the manual workflow **Actions → Prune** (modes
 workflow run except the newest run of each workflow (a clean-up). It calls
 the shared workflow
 [`devcontainer-prune.yml`](.github/workflows/devcontainer-prune.yml) and
-grants `packages: write` and `actions: write`.
+grants `packages: write` and `actions: write`. devcontainer-features has no
+package: its Prune workflow runs every Sunday with `runs-only: true` and
+deletes only its old workflow runs.
 
 ### Schedule and chain build
 
