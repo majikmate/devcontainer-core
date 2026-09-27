@@ -9,7 +9,7 @@
 //	devcon-release keep-alive  keep the scheduled workflow enabled
 //	devcon-release inspect     show the digest, labels and creation time of an image
 //	devcon-release module-release  create the next version tag of a Go module (no image)
-//	devcon-release prune       delete outdated versions of container packages (or whole packages)
+//	devcon-release prune       delete outdated versions of container packages (or whole packages) and old workflow runs
 //
 // Defaults come from the environment of GitHub Actions (GITHUB_REPOSITORY,
 // GITHUB_SHA, GITHUB_TOKEN, ...).
@@ -215,6 +215,8 @@ func prune(args []string) error {
 	fs.IntVar(&o.MaxAgeDays, "max-age-days", 0, "releases of the current major line older than this are outdated; the newest is kept (0: keep all)")
 	fs.BoolVar(&o.AllButNewest, "all-but-newest", false, "every release of the current major line except the newest is outdated")
 	fs.BoolVar(&o.DeletePackages, "delete-packages", false, "delete the whole packages")
+	fs.StringVar(&o.Repository, "repository", os.Getenv("GITHUB_REPOSITORY"), "repository (owner/name) whose old workflow runs are deleted")
+	fs.IntVar(&o.RunsMaxAgeDays, "runs-max-age-days", 0, "finished workflow runs (any result) of the repository older than this are deleted; with --all-but-newest all but the newest run of each workflow (0: keep all)")
 	mode := fs.String("mode", "report", "report (list only) or apply (delete)")
 	fs.Parse(args)
 	switch *mode {

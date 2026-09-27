@@ -1,10 +1,12 @@
 # Manual run: lists (report) or deletes (apply) the outdated versions of
-# ghcr.io/majikmate/devcontainer-core. The logic is in the shared workflow
-# devcontainer-prune.yml of this repository.
+# ghcr.io/majikmate/devcontainer-core and the outdated workflow runs of this
+# repository. The logic is in the shared workflow devcontainer-prune.yml of
+# this repository.
 #
 # Scope "outdated" uses the same rules as the release workflow after every
-# run (releases older than 90 days); "all-but-newest" deletes every release
-# of the current major line except the newest (a one-time clean-up).
+# run (releases and workflow runs older than 90 days); "all-but-newest"
+# deletes every release of the current major line except the newest and
+# every workflow run except the newest run of each workflow (a clean-up).
 name: Prune
 
 on:
@@ -26,6 +28,7 @@ jobs:
     uses: ./.github/workflows/devcontainer-prune.yml
     permissions:
       packages: write
+      actions: write
     with:
       mode: ${{ inputs.mode }}
       scope: ${{ inputs.scope }}

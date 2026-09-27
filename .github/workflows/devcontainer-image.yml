@@ -56,11 +56,11 @@ on:
         type: string
         default: ""
       prune:
-        description: "Outdated package versions (untagged and not used, buildcache-*, major versions below major-version, releases older than prune-max-age-days): apply (delete them, the default), report (only list them in the run summary) or off"
+        description: "Outdated package versions (untagged and not used, buildcache-*, major versions below major-version, releases older than prune-max-age-days) and workflow runs older than prune-max-age-days: apply (delete them, the default), report (only list them in the run summary) or off"
         type: string
         default: apply
       prune-max-age-days:
-        description: Releases of the current major line older than this number of days are outdated; the newest release is always kept (0 keeps all)
+        description: Releases of the current major line and finished workflow runs (any result) older than this number of days are outdated; the newest release is always kept (0 keeps all)
         type: number
         default: 90
     secrets:
@@ -322,6 +322,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       packages: write
+      # delete the workflow runs older than prune-max-age-days
+      actions: write
     steps:
       - name: Check out the tooling
         uses: actions/checkout@v7
@@ -337,11 +339,12 @@ jobs:
           go-version-file: .devcon/go.mod
           cache: false
 
-      - name: List or delete the outdated versions
+      - name: List or delete the outdated versions and workflow runs
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: >-
           go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
           --max-age-days "${{ inputs.prune-max-age-days }}"
+          --runs-max-age-days "${{ inputs.prune-max-age-days }}"
           --mode "${{ inputs.prune }}"
