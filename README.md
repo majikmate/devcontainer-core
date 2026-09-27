@@ -1,214 +1,178 @@
 # devcontainer-core
 
-The shared base of all Dev Container images. It defines the distribution
-(Debian 13) and provides the infrastructure. It has four parts:
+The shared base of all Dev Container images. It has four parts:
 
-1. **The image** `ghcr.io/majikmate/devcontainer-core`: Debian 13 (trixie) with the
-   development user `dev`, zsh, locales, git settings, the Pure prompt and an SSH server.
-2. **The framework and the layer tool `devcon`**: a static Go program (built with
-   `CGO_ENABLED=0`) in the image. Every feature of every image is one layer,
-   installed with `RUN devcon install <layer>`. It also writes the VS Code
-   settings of the layers into the image label, so the image Dockerfiles do not
-   need to handle them.
-3. **The Debian-bound layers** ([`pkg/layers`](pkg/layers)): os, user, locales,
-   sshd, build-tools, playwright-deps. The distribution-independent layers
-   (git, aliases, pure-prompt, go, node, deno, prettier, github-cli) are in
-   [devcontainer-features](https://github.com/majikmate/devcontainer-features);
-   core builds `devcon` with the newest version of that library.
-4. **The release tooling**: the shared workflow
-   [`.github/workflows/devcontainer-image.yml`](.github/workflows/devcontainer-image.yml)
-   and the Go program `devcon-release`. They decide when an image needs a new
-   version, then build, test and release it.
+1. **The image** `ghcr.io/majikmate/devcontainer-core`: Debian 13 "trixie"
+   with the user `dev`, zsh, locales, git settings, the Pure prompt and an SSH
+   server.
+2. **The layer tool `devcon`**: a static Go program (`CGO_ENABLED=0`) in the
+   image. Every part of every image is one layer, installed with
+   `RUN devcon install <layer>`. `devcon` also provides the VS Code settings of
+   the layers.
+3. **The Debian-bound layers** ([`pkg/layers`](pkg/layers)): os, user,
+   locales, sshd, build-tools, playwright-deps. The distribution-independent
+   layers are in
+   [devcontainer-features](https://github.com/majikmate/devcontainer-features).
+4. **The release tooling**: the shared workflows in
+   [`.github/workflows`](.github/workflows) and the Go program
+   `devcon-release`. They decide when an image needs a new version, then
+   build, test, release and prune it.
 
 Only GitHub native tools, Docker native tools (`docker buildx`) and our own Go
-programs are used. There are no Dev Container features, no Dev Container CLI,
-and no Bash or Python scripts.
+programs are used: no Dev Container features, no Dev Container CLI, no Bash or
+Python scripts.
 
-## Image chain
+**Image:** `ghcr.io/majikmate/devcontainer-core:1` · linux/amd64, linux/arm64 ·
+[release notes](https://github.com/majikmate/devcontainer-core/releases)
 
+## Dependencies
+
+```text
+                                               Nightly Content
+devcontainer-features                                  Go library of layers, compiled into devcon
+  ▼
+devcontainer-core:1                            23:17   Debian 13, devcon, user dev, zsh, SSH server
+├── devcontainer-base:2                        01:17   + go, build-tools, node, deno, prettier
+│   ├── devcontainer-dev:2                     03:37   + github-cli
+│   ├── devcontainer-classroom-web:2           03:47   classroom settings, AI off
+│   └── devcontainer-classroom-web-advanced:2  03:57   + playwright-deps, AI on
+└── devcontainer-classroom-exam-ts:2           01:27   + deno, AI and coding assistance off
 ```
-devcontainer-core                   (this repository)
-├── devcontainer-base               + go, node, deno, prettier
-│   ├── devcontainer-classroom-web
-│   ├── devcontainer-web-advanced   + playwright-deps
-│   └── devcontainer-dev            + github-cli
-└── devcontainer-classroom-exam-ts  + deno
-```
+
+This repository: **devcontainer-core**. Nightly checks in UTC. Repositories:
+[core](https://github.com/majikmate/devcontainer-core) ·
+[features](https://github.com/majikmate/devcontainer-features) ·
+[base](https://github.com/majikmate/devcontainer-base) ·
+[dev](https://github.com/majikmate/devcontainer-dev) ·
+[classroom-web](https://github.com/majikmate/devcontainer-classroom-web) ·
+[classroom-web-advanced](https://github.com/majikmate/devcontainer-classroom-web-advanced) ·
+[classroom-exam-ts](https://github.com/majikmate/devcontainer-classroom-exam-ts)
+
+## Content
+
+Each layer is one line in [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile):
+
+| Layer | Content | Version |
+| ----- | ------- | ------- |
+| `os` | all Debian updates and the basic tools | Debian 13 "trixie" |
+| `user` | user `dev` (UID 1000) with zsh and sudo | — |
+| `locales` | locales of `LANG` and `LC_*`, time zone `TZ` | Debian packages |
+| `git` | system-wide git settings (rebase on pull, auto stash) | — |
+| `aliases` | shell aliases: ls, ll, grep, vs | — |
+| `pure-prompt` | Pure prompt for zsh | newest release |
+| `sshd` | SSH server on port 2222 (see [SSH access](#ssh-access)) | Debian packages |
+
+`devcon` is built with the newest version of devcontainer-features (build
+argument `FEATURES_VERSION`). A new features version leads to a new core image;
+the other images follow through the new core image digest.
 
 ## Writing an image
 
-An image repository has a `.devcontainer/Dockerfile` that starts from core (or
-from an image that builds on core) and adds layers:
+The `.devcontainer/Dockerfile` of an image starts from core (or from an image
+that builds on core) and adds layers:
 
 ```dockerfile
 FROM ghcr.io/majikmate/devcontainer-core:1
 
-# deno: the release workflow passes the newest version; without it the newest is installed
+ARG DENO_PIN=2
 ARG DENO_VERSION
 RUN devcon install deno
 ```
 
-Rules:
+- One `RUN devcon install <layer>` per layer, so every layer is one Docker
+  layer.
+- Declare the build arguments of a layer as `ARG` right before its `RUN` line
+  ([docs/layers.md](docs/layers.md)). The release workflow passes the newest
+  tool versions; without them, the layer installs the newest version.
+- A layer checks that the layers it needs are installed.
+- The `.devcontainer/devcontainer.json` keeps the VS Code settings of the
+  image. The release workflow writes them, together with the settings of all
+  layers, into the image label `devcontainer.metadata`.
 
-- One `RUN devcon install <layer>` per layer, so every feature is one Docker layer.
-- Declare the tool versions of a layer as `ARG` right before its `RUN` line
-  (see [docs/layers.md](docs/layers.md) for the argument names).
-- A layer checks that the layers it needs are installed and stops the build otherwise.
+**Pinned release lines.** `ARG <TOOL>_PIN=<line>` in the Dockerfile that
+installs the layer pins a release line (Go, Node.js, Deno; rules in
+[devcontainer-features](https://github.com/majikmate/devcontainer-features#pinned-release-lines)).
+The layer installs the newest release inside the line. At the end of life of
+the line, the release check and the build fail; there is no warning before.
+The message names the line, the reason, the source and the supported lines:
 
-### Pinning a release line
-
-Some tools can be pinned to a release line with the build argument
-`<TOOL>_PIN`. The pin goes into the Dockerfile that installs the layer:
-
-```dockerfile
-ARG GO_PIN=1.27
-ARG GO_VERSION
-RUN devcon install go
+```text
+go 1.27 (GO_PIN=1.27) has reached its end of life (Go 1.29.0 was released; Go supports the two newest major releases).
+Source: https://go.dev/doc/devel/release#policy. Change ARG GO_PIN in the Dockerfile to a supported version (supported: 1.28, 1.29).
 ```
 
-- **With a pin**, the layer installs the newest release inside the line (for
-  example the newest Go 1.27.x). A new release inside the line gives a new
-  image version.
-- **Without a pin**, the layer installs the newest release.
-- **At the end of life** of the pinned line, the release check and the build
-  fail. There is no warning before; the failed build is the warning. The
-  message names the pinned line, when or why its support ended, the source of
-  this information and the supported lines, for example:
-
-  ```text
-  go 1.27 (GO_PIN=1.27) has reached its end of life (Go 1.29.0 was released; Go supports the two newest major releases).
-  Source: https://go.dev/doc/devel/release#policy. Change ARG GO_PIN in the Dockerfile to a supported version (supported: 1.28, 1.29).
-  ```
-
-The feature decides what a line is and when it ends (see
-[docs/layers.md](docs/layers.md)). Tools that depend on a pinned tool follow
-it: for example, the Go tools get the newest version that works with the
-installed Go version.
-
-The Debian release has the same kind of check (layer `os`): when the regular
-security support of the Debian release has ended (column `eol` of the Debian
-package `distro-info-data`; the later LTS support does not count), the build of
-core and the nightly check of core fail. The fix is a newer Debian release in
-the `FROM` lines of the core Dockerfile.
-
-The `.devcontainer/devcontainer.json` of the image repository keeps the VS Code
-settings of that image (extensions, settings). The release workflow writes them
-into the image label `devcontainer.metadata`, together with the settings of all layers.
+The Debian release has the same check (layer `os`): when its regular security
+support ends (column `eol` of `distro-info-data`), the build and the nightly
+check of core fail. The fix is a newer Debian release in the `FROM` lines of
+the core Dockerfile.
 
 ## Layers
 
-All layers, their build arguments, tool versions and label entries are listed in
-[docs/layers.md](docs/layers.md). The file is generated from the code:
+All layers with their build arguments, tool versions and label entries:
+[docs/layers.md](docs/layers.md), generated with
+`go run ./cmd/devcon layers --markdown > docs/layers.md`.
 
-```sh
-go run ./cmd/devcon layers --markdown > docs/layers.md
-```
+A layer is one Go file that registers itself in its `init` function: in
+[`pkg/layers`](pkg/layers) when it needs the package manager or other parts of
+the distribution, otherwise in devcontainer-features. It declares:
 
-The code of a layer is one file: in [`pkg/layers`](pkg/layers) for the
-Debian-bound layers, in [devcontainer-features](https://github.com/majikmate/devcontainer-features)
-for the distribution-independent layers. A layer declares:
-
-| Field      | Meaning                                                                   |
-| ---------- | ------------------------------------------------------------------------- |
-| `Name`     | name used in `devcon install <name>`                                      |
-| `Needs`    | layers that must be installed before                                      |
-| `Args`     | build arguments with default values                                       |
-| `Tools`    | tools with a version: build argument and a function for the newest version |
+| Field | Meaning |
+| ----- | ------- |
+| `Name` | name used in `devcon install <name>` |
+| `Needs` | layers that must be installed before |
+| `Args` | build arguments with default values |
+| `Tools` | tools with a build argument, a function for the newest version and an optional pin |
 | `Metadata` | VS Code settings and container options for the label `devcontainer.metadata` |
-| `Install`  | installation (runs as root during the build)                              |
-| `Test`     | test in the built image (runs as the development user)                    |
-| `Start`    | optional start step, run by `devcon start` when the container starts      |
-| `Commands` | optional `devcon` commands of the layer                                   |
+| `Install` | installation (root, during the build) |
+| `Test` | test in the built image (user `dev`) |
+| `Check` | optional support check (end of life), run by `devcon check` |
+| `Start` | optional start step, run by `devcon start` |
+| `Commands` | optional `devcon` commands of the layer |
 
-To add a layer: a layer that needs the package manager or other parts of the
-distribution goes into `pkg/layers` of this repository (release core); any
-other layer goes into devcontainer-features (see its README). Register the
-layer in the `init` function of its file and regenerate `docs/layers.md`.
-
-**How features reach the images.** After a merge in devcontainer-features, its
-release workflow creates the next version tag. The nightly plan of core reads
-the newest tag (input `tool/features`) and passes it as build argument
-`FEATURES_VERSION`; the builder stage of the core Dockerfile builds `devcon`
-with exactly this version. A new features version therefore leads to a new
-core image, and the other images follow through the new core image digest.
-
-### Framework packages
-
-The framework is public, so that layers in other repositories can use it
-(module `github.com/majikmate/devcontainer-core`):
+**Framework packages** (public, module `github.com/majikmate/devcontainer-core`):
 
 | Package | Content |
 | ------- | ------- |
-| [`pkg/layer`](pkg/layer) | layer definition, registry, pinned release lines and end of life, test helpers |
-| [`pkg/sys`](pkg/sys) | commands, downloads with checksum, archives, users, files, groups |
-| [`pkg/debian`](pkg/debian) | Debian-specific: apt, pending package updates, release dates |
+| [`pkg/layer`](pkg/layer) | layer definition, registry, pinned release lines, test helpers |
+| [`pkg/sys`](pkg/sys) | commands, downloads with checksum, archives, users, files |
+| [`pkg/debian`](pkg/debian) | apt, pending package updates, Debian releases |
 | [`pkg/shellrc`](pkg/shellrc) | settings for bash and zsh |
 | [`pkg/state`](pkg/state) | installed layers and development user of an image |
 | [`pkg/devcontainer`](pkg/devcontainer) | entries of the label `devcontainer.metadata` |
 | [`pkg/versions`](pkg/versions) | newest versions from go.dev, Node.js, Deno, npm, GitHub releases |
-| [`pkg/layers`](pkg/layers) | the Debian-bound layers (importing it registers them) |
+| [`pkg/layers`](pkg/layers) | the Debian-bound layers |
 
-Distribution-independent layers use only `pkg/sys` for system work; only
-Debian-bound layers use `pkg/debian`.
-
-### The label `devcontainer.metadata`
-
-The label is a JSON list. VS Code, Codespaces and the Dev Container tools merge
-its entries in order. The release workflow creates the list:
-
-1. the entries of the base image (from its label),
-2. one entry per new layer, with the id `devcon/<layer>` (from `devcon metadata`),
-3. one entry for the image, with the id `devcon/image/<repository>` (from its `devcontainer.json`).
-
-When an installed layer has a start step, `devcon metadata` also adds the
-entry `devcon/start` with `"postStartCommand": "devcon start"` (once for all
-layers). Entries with the same id are not added twice.
+**The label `devcontainer.metadata`** is a JSON list that VS Code and
+Codespaces merge in order: the entries of the base image, one entry per new
+layer (id `devcon/<layer>`), one entry for the image (id
+`devcon/image/<repository>`), and `devcon/start` with
+`"postStartCommand": "devcon start"` when a layer has a start step.
 
 ## devcon commands
 
-| Command                    | Where                    | What it does                                             |
-| -------------------------- | ------------------------ | -------------------------------------------------------- |
-| `devcon install <layer>…`  | Dockerfile (root)        | installs layers                                          |
-| `devcon layers [--markdown]` | anywhere               | lists the layers (`*` = installed in this image)         |
-| `devcon test [<layer>…]`   | built image              | tests the installed layers                               |
-| `devcon metadata`          | built image              | prints the label entries of the installed layers         |
-| `devcon check [<layer>…]`  | built image              | checks the support of the installed layers (end of life, for example of the Debian release) |
-| `devcon start [<cmd>…]`    | container start          | runs the start steps of the installed layers, then `<cmd>` |
-| `devcon ssh-keys`          | container (layer sshd)   | loads the SSH keys of the owner's GitHub account         |
-| `devcon sshd-start`        | container, root (layer sshd) | starts the SSH server                                |
-| `devcon os-updates [--security]` | root (layer os)    | lists pending Debian updates without installing them (used by the Debian update check) |
-
-The images do not update Debian packages when a container is created. The
-release workflow keeps the images current instead (see below).
+| Command | Where | What it does |
+| ------- | ----- | ------------ |
+| `devcon install <layer>…` | Dockerfile (root) | installs layers |
+| `devcon layers [--markdown]` | anywhere | lists the layers (`*` = installed) |
+| `devcon test [<layer>…]` | built image | tests the installed layers |
+| `devcon metadata` | built image | prints the label entries of the installed layers |
+| `devcon check [<layer>…]` | built image | checks the support of the installed layers (end of life) |
+| `devcon start [<cmd>…]` | container start | runs the start steps, then `<cmd>` |
+| `devcon ssh-keys` | container (layer sshd) | loads the SSH keys of the owner's GitHub account |
+| `devcon sshd-start` | container, root (layer sshd) | starts the SSH server |
+| `devcon os-updates [--security]` | root (layer os) | lists pending Debian updates without installing them |
 
 ## SSH access
 
-The SSH server listens on port **2222**. It accepts only public keys: no password
-login and no root login. The keys are the public keys of the GitHub account of the
-container owner (`https://github.com/<user>.keys`). They replace
-`~/.ssh/authorized_keys` of the user `dev`. When GitHub cannot be reached, the
-existing keys stay.
+The SSH server listens on port **2222** and accepts only the public keys of the
+GitHub account of the container owner (`https://github.com/<user>.keys`): no
+password, no root login. When GitHub cannot be reached, the existing keys stay.
 
-`devcon` finds the GitHub user name in this order:
-
-1. the environment variable `GITHUB_USER`,
-2. the file `/workspaces/.codespaces/shared/.env` (Codespaces),
-3. the git setting `github.user` in `~/.gitconfig` (the Dev Containers extension
-   copies the `.gitconfig` of your computer into the container).
-
-| Environment                 | Start of SSH server and key loading                          | Where the user name comes from |
-| --------------------------- | ------------------------------------------------------------ | ------------------------------ |
-| Codespaces                  | `postStartCommand` and `postAttachCommand` of the label      | `GITHUB_USER` (set by Codespaces) |
-| Dev Containers extension    | `postStartCommand` and `postAttachCommand` of the label      | `github.user` in your `~/.gitconfig` |
-| `docker run` (local or on a VM) | `ENTRYPOINT ["devcon", "start"]`                         | `-e GITHUB_USER=<user>`        |
-
-Setup for the Dev Containers extension (once, on your computer):
-
-```sh
-git config --global github.user <your-github-user>
-```
-
-Example with Docker on your computer or on a VM:
+| Environment | Where the GitHub user name comes from |
+| ----------- | ------------------------------------- |
+| Codespaces | `GITHUB_USER` (set by Codespaces) |
+| Dev Containers extension | `git config --global github.user <your-github-user>` on your computer (run once) |
+| `docker run` (local or on a VM) | `-e GITHUB_USER=<your-github-user>` |
 
 ```sh
 docker run -d --name dev -p 2222:2222 -e GITHUB_USER=<your-github-user> \
@@ -218,26 +182,10 @@ ssh -p 2222 dev@localhost
 
 ## Releases
 
-Every image repository has a `.github/workflows/release.yml` that calls the shared
-workflow of this repository:
+Every image repository has a `.github/workflows/release.yml` that calls the
+shared workflow of this repository:
 
 ```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      # Every release.yml declares these three inputs (the chain build passes them)
-      upstream:
-        description: First update the upstream images (chain build)
-        type: boolean
-        default: true
-      force:
-        type: boolean
-        default: false
-      bump:
-        type: choice
-        options: [auto, patch, minor, major]
-        default: auto
-
 jobs:
   image:
     uses: majikmate/devcontainer-core/.github/workflows/devcontainer-image.yml@main
@@ -245,8 +193,7 @@ jobs:
       image-title: …
       image-description: …
       major-version: 2
-      # The image in the FROM line of .devcontainer/Dockerfile
-      upstream-repositories: devcontainer-base
+      upstream-repositories: devcontainer-base # the image in the FROM line
       update-upstream: ${{ github.event_name == 'workflow_dispatch' && inputs.upstream == true }}
       force: ${{ inputs.force || false }}
       bump: ${{ inputs.bump || 'auto' }}
@@ -255,109 +202,72 @@ jobs:
       app-private-key: ${{ secrets.DEVCONTAINER_APP_PRIVATE_KEY }}
 ```
 
-The jobs run `devcon-release` with `go run`:
-
-| Job        | Command                     | What it does                                                        |
-| ---------- | --------------------------- | ------------------------------------------------------------------- |
-| `upstream` | `devcon-release upstream`   | manual chain build: runs the Release workflows of the upstream images and waits |
-| `prepare`  | `devcon-release plan`       | collects the inputs, decides whether to build and release, computes the version |
-| `build`    | `devcon-release build`      | builds with `docker buildx`, sets the labels, tests, pushes (amd64 and arm64) |
-| `publish`  | `devcon-release publish`    | creates the multi-architecture tags and the GitHub release          |
+| Job | Command | What it does |
+| --- | ------- | ------------ |
+| `upstream` | `devcon-release upstream` | manual chain build: runs the Release workflows of the upstream images and waits |
+| `prepare` | `devcon-release plan` | collects the inputs, decides whether to release, computes the version |
+| `build` | `devcon-release build` | builds with `docker buildx`, sets the labels, tests, pushes (amd64 and arm64) |
+| `publish` | `devcon-release publish` | creates the multi-architecture tags and the GitHub release |
+| `prune` | `devcon-release prune` | deletes the outdated versions of the image package |
 
 ### When a new version is released
 
-The plan compares the **inputs** of the newest release (label `devcon.inputs`)
-with the current inputs:
+The plan compares the inputs of the newest release (label `devcon.inputs`) with
+the current inputs:
 
-- `config`: the git tree of the configuration paths (for core also the Go source),
+- `config`: the content of the configuration paths (input `config-paths`,
+  default `.devcontainer` and `README.md`, because GitHub shows the README on
+  the package page; for core also the Go source),
 - `image/<ref>`: the digest of every base image in the Dockerfile,
-- `tool/<name>`: the newest version of every tool of the layers in the Dockerfile
-  (inside the pinned line when the Dockerfile sets `ARG <TOOL>_PIN=<line>`).
+- `tool/<name>`: the newest version of every tool of the layers in the
+  Dockerfile (inside the pinned line).
 
-**End of life.** Before it decides, the plan checks the pinned lines of the
-Dockerfile and, in the newest image, runs `devcon check` (for example the
-Debian release). A line at its end of life stops the run with an error; nothing
-is built or released until the Dockerfile changes.
-
-A new version is released when:
+First, the plan checks the pinned lines and runs `devcon check` in the newest
+image; an end of life stops the run. A new version is released when:
 
 - an input changed;
-- **Debian updates** are pending for the image (see below);
-- the newest image is older than `max-age-days` (default 7 days; a safety net,
-  for example when the update check fails);
+- **Debian updates** are pending: the plan runs `devcon os-updates` in the
+  newest image (a simulated upgrade; nothing is installed). Core counts all
+  updates; any other image counts only the updates that its `FROM` image does
+  not have too;
+- the newest image is older than `max-age-days` (default 7 days);
 - or with `force`.
 
-**Debian update check.** Every nightly and manual run starts the newest
-published image as root and runs `devcon os-updates`, which simulates an
-upgrade (`apt-get -s dist-upgrade`) and lists the packages with a newer
-version. Nothing is installed. Debian stable receives only fixes (security
-archive, stable-updates, point releases), so every pending update counts. The
-release reason names the number of packages, every security update, and the
-first other packages. An image that installs the layer `os` (core) counts all
-updates, because its build upgrades all packages. Any other image counts only
-the updates that its `FROM` image does not have too: the other updates are the
-job of the base image, and the image follows through the new base image digest.
-
-Version step (`bump: auto`): minor when Go 1.x changes or the major version of
-Node.js or Deno changes, otherwise patch. The major version is set in
-`release.yml` (`major-version`).
-
-Tags: `X.Y.Z`, `X.Y`, `X` and `latest`. Pull requests build and test the image
+**Version step** (`bump: auto`): minor when Go 1.x or the major version of
+Node.js or Deno changes, otherwise patch; the major version is `major-version`.
+**Tags:** `X.Y.Z`, `X.Y`, `X` and `latest`. Pull requests build and test
 without a release.
 
-**Outdated package versions.** After every run (not for pull requests), the job
-`prune` (`devcon-release prune`) looks at the versions of the image package on
-ghcr.io. Outdated are:
+### Kept package versions
 
-- untagged versions that no kept image refers to (older builds whose tags
-  moved to a newer build; the parts of a multi-architecture image are kept),
-- the tags `buildcache-*` of the former release workflow,
-- the versions of major lines below `major-version`,
-- the releases of the current major line (for example `2.0.3` with
-  `2.0.3-amd64`, `2.0.3-arm64` and their parts) older than
-  `prune-max-age-days` (default 90 days).
+After every run (not for pull requests), the job `prune` deletes the outdated
+versions of the image package on ghcr.io:
 
-Always kept: the newest release, every version with a moving tag (`2`,
-`2.0`, `latest`) and the parts of kept multi-architecture images. When the
-references of a kept image cannot be read, no untagged version is deleted.
-90 days leave time for users who pin a full version (for example during an
-exam period).
+- releases of the current major line older than `prune-max-age-days` (default
+  90 days), with their `-amd64` and `-arm64` versions,
+- versions of major lines below `major-version`,
+- untagged versions that no kept image uses, and the old `buildcache-*` tags.
 
-The input `prune` of the shared workflow decides what happens: `apply` (the
-default) deletes them, `report` only lists them in the run summary, `off`
-skips the job. Deleting cannot be undone.
+Always kept: the newest release, every version with a moving tag (`2`, `2.0`,
+`latest`) and the parts of kept images. When the references of a kept image
+cannot be read, no untagged version is deleted. The input `prune` selects
+`apply` (default), `report` (list only) or `off`. Deleting cannot be undone.
 
-Every image repository also has the manual workflow **Prune**
-(`.github/workflows/prune.yml`, **Actions → Prune → Run workflow**) with the
-modes `report` and `apply` and two scopes: `outdated` (the rules above) and
-`all-but-newest` (every release of the current major line except the newest;
-a one-time clean-up). It calls the shared workflow
-[`devcontainer-prune.yml`](.github/workflows/devcontainer-prune.yml) with the
-major version of the image:
-
-```yaml
-jobs:
-  prune:
-    uses: majikmate/devcontainer-core/.github/workflows/devcontainer-prune.yml@main
-    permissions:
-      packages: write
-    with:
-      mode: ${{ inputs.mode }}
-      scope: ${{ inputs.scope }}
-      major-version: 2
-```
+Every repository also has the manual workflow **Actions → Prune** (modes
+`report` and `apply`; scopes `outdated` and `all-but-newest`, which deletes
+every release except the newest). It calls the shared workflow
+[`devcontainer-prune.yml`](.github/workflows/devcontainer-prune.yml).
 
 ### Schedule and chain build
 
-The nightly checks run in chain order (UTC): core 23:17, base 01:17,
-classroom-exam-ts 01:27, dev 03:37, classroom-web 03:47, web-advanced 03:57.
+The nightly checks run in chain order, two hours after the image they build on
+(times in [Dependencies](#dependencies)). They do not start each other.
 
-A manual run ("Run workflow" with the option `upstream`, on by default) builds
-the whole chain below the image. The chain build is recursive: each image starts
-the Release workflow of the image in its `FROM` line with `upstream=true` and
-waits for it. Example for devcontainer-classroom-web:
+A manual run (**Actions → Release → Run workflow**, option `upstream` on by
+default) first starts the Release workflow of the image in its `FROM` line and
+waits; that image does the same. Example for devcontainer-classroom-web:
 
-```
+```text
 classroom-web (manual start)
 └─ starts base, waits
    └─ base starts core, waits
@@ -366,45 +276,19 @@ classroom-web (manual start)
 └─ classroom-web: check, release if base changed (3rd)
 ```
 
-Every image in the chain runs the complete automatic check of
-[When a new version is released](#when-a-new-version-is-released), the same as
-in its nightly run:
-
-- inputs: configuration, digest of the base image, newest tool versions,
-- maximum age (`max-age-days`, Debian updates),
-- version step (`bump: auto`: minor for a new Go 1.x or Node.js/Deno major, else patch).
-
-So core releases when core needs it; base releases when core changed or base
-needs it for its own reasons; the started image does the same. The options
-`force` and `bump` of the manual start apply only to the started image; the
-upstream images always run with `force=false` and `bump=auto`.
-A failed run stops the chain. The nightly checks do not start the chain; they
-run one after the other by their schedule.
-
-The chain build needs the GitHub App `majikmate-devcontainer` (organization secrets
-`DEVCONTAINER_APP_CLIENT_ID` and `DEVCONTAINER_APP_PRIVATE_KEY`, passed as
-`app-client-id` and `app-private-key`) with the permission "Actions: write" on
-the upstream repositories.
+Every image runs its complete automatic check. `force` and `bump` apply only
+to the started image. A failed run stops the chain. The chain build needs the
+GitHub App `majikmate-devcontainer` (organization secrets
+`DEVCONTAINER_APP_CLIENT_ID` and `DEVCONTAINER_APP_PRIVATE_KEY`) with
+"Actions: write" on the upstream repositories.
 
 ## Development
-
-Build and test the Go programs (in any container with Go):
 
 ```sh
 CGO_ENABLED=0 go vet ./...
 CGO_ENABLED=0 go test ./...
-```
-
-Build the image locally:
-
-```sh
 docker buildx build --load -t devcontainer-core:dev -f .devcontainer/Dockerfile .
 docker run --rm --user dev --entrypoint devcon devcontainer-core:dev test
-```
-
-Show the digest and labels of a published image:
-
-```sh
 go run ./cmd/devcon-release inspect ghcr.io/majikmate/devcontainer-core:1
 ```
 

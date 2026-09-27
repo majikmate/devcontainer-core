@@ -28,9 +28,9 @@ on:
         type: number
         required: true
       config-paths:
-        description: Paths of the repository whose content is an input, separated by spaces
+        description: Paths of the repository whose content is an input, separated by spaces (README.md is shown on the package page)
         type: string
-        default: .devcontainer
+        default: .devcontainer README.md
       absent-commands:
         description: Commands that must not exist in the image, separated by spaces
         type: string
