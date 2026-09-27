@@ -1,0 +1,37 @@
+// devcontainer-core: the base of all Dev Container images.
+// The layers declare their own settings (user, terminal, lifecycle commands);
+// this file adds the settings that every image shares. The release workflow
+// writes both into the image label devcontainer.metadata.
+// Documentation: https://github.com/majikmate/devcontainer-core#readme
+{
+  "name": "Dev Container Core",
+  "build": {
+    "context": "..",
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Markdown preview in GitHub style
+        "bierner.github-markdown-preview"
+      ],
+      "settings": {
+        // Open Markdown files in the preview
+        "workbench.editorAssociations": {
+          "*.md": "vscode.markdown.preview.editor"
+        },
+        // Initial color theme
+        "workbench.colorTheme": "Visual Studio Dark",
+        // Git in VS Code: fetch automatically, stash and rebase on sync, sync after commit
+        "git.autofetch": true,
+        "git.autoStash": true,
+        "git.confirmSync": false,
+        "git.enableSmartCommit": true,
+        "git.postCommitCommand": "sync",
+        "git.rebaseWhenSync": true,
+        "git.rememberPostCommitCommand": false,
+        "git.useEditorAsCommitInput": false
+      }
+    }
+  }
+}

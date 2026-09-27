@@ -1,0 +1,47 @@
+# Builds, tests and releases ghcr.io/majikmate/devcontainer-core.
+# The logic is in the shared workflow devcontainer-image.yml and in the Go
+# program devcon-release of this repository.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  # Nightly check, first in the chain: the images that build on this image run
+  # their check two hours later (devcontainer-base, devcontainer-classroom-exam-ts).
+  schedule:
+    - cron: "17 23 * * *"
+  # Manual check ("Run workflow"): the same check as the nightly run, at once
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Release a new version even if no input changed
+        type: boolean
+        default: false
+      bump:
+        description: Version step
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+# One release at a time; pull requests cancel their older runs
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  image:
+    uses: ./.github/workflows/devcontainer-image.yml
+    permissions:
+      contents: write
+      packages: write
+      actions: write
+    with:
+      image-title: Dev Container Core
+      image-description: Base of the Dev Container images (Debian 13, user dev with zsh, locales, git, Pure prompt, SSH server) with the layer tool devcon
+      major-version: 1
+      # The Go source of devcon is part of the image
+      config-paths: .devcontainer cmd internal go.mod
+      force: ${{ inputs.force || false }}
+      bump: ${{ inputs.bump || 'auto' }}

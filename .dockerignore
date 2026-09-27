@@ -1,0 +1,7 @@
+# The Dockerfile copies only go.mod, cmd and internal; this keeps the build
+# context small and free of local files.
+.git
+.devcon
+.github
+docs
+test-output*

@@ -1,0 +1,17 @@
+# Weekly updates of the GitHub actions, the Docker base images and the Go version.
+# The tools in the image (Go, Node.js, Deno, ...) are not updated here: the
+# release workflow checks their newest versions every night.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /.devcontainer
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
