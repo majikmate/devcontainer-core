@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -134,23 +135,40 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 			return nil, err
 		}
 	}
-	// 3. Tools: the newest versions of the tools of the installed layers
+	// 3. Tools: the newest versions of the tools of the installed layers,
+	// inside the pinned release lines (ARG <TOOL>_PIN=<line>); a pinned line
+	// at its end of life stops the release
 	for _, name := range dockerfile.Layers {
 		l, err := layer.Get(name)
 		if err != nil {
 			return nil, err
 		}
-		for _, tool := range l.Tools {
-			version, err := tool.Newest()
+		for i := range l.Tools {
+			tool := &l.Tools[i]
+			key := "tool/" + tool.Name
+			line := ""
+			if tool.Pin != nil {
+				line = dockerfile.ArgDefaults[tool.Pin.Arg]
+			}
+			if err := tool.CheckPin(line); err != nil {
+				if eol := (*layer.EndOfLifeError)(nil); errors.As(err, &eol) {
+					return nil, fmt.Errorf("%s: %w", project.Dockerfile, err)
+				}
+				warning("Could not check the support of %s %s: %v", tool.Name, line, err)
+			}
+			version, err := tool.NewestVersion(line, p.ToolVersion[tool.Follows])
 			if err != nil {
 				warning("Could not read the newest version of %s: %v", tool.Name, err)
 				version = ""
 			}
-			if err := add("tool/"+tool.Name, version); err != nil {
+			if err := add(key, version); err != nil {
 				return nil, err
 			}
-			p.BuildArgs[tool.Arg] = p.Inputs["tool/"+tool.Name]
-			p.ToolVersion[tool.Name] = p.Inputs["tool/"+tool.Name]
+			if line != "" && !layer.InLine(p.Inputs[key], line) {
+				return nil, fmt.Errorf("%s: no version of %s in the pinned line %s=%s (found %s)", project.Dockerfile, tool.Name, tool.Pin.Arg, line, p.Inputs[key])
+			}
+			p.BuildArgs[tool.Arg] = p.Inputs[key]
+			p.ToolVersion[tool.Name] = p.Inputs[key]
 		}
 	}
 
@@ -171,6 +189,11 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 	// and tags, which build anyway)
 	if o.Event != "pull_request" && !tagRef.MatchString(o.Ref) && !current.Created.IsZero() {
 		p.Updates = ownUpdates(o.Image+":latest", dockerfile)
+		// 6. Support of the installed layers (for example the Debian
+		// release of the layer os): an end of life stops the release
+		if err := checkSupport(o.Image+":latest", dockerfile); err != nil {
+			return nil, fmt.Errorf("%s: %w", project.Dockerfile, err)
+		}
 	}
 
 	if err := p.decide(o, current, previous); err != nil {

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/majikmate/devcontainer-core/pkg/debian"
 	"github.com/majikmate/devcontainer-core/pkg/layer"
@@ -26,6 +27,8 @@ var osPackages = []string{
 	"ca-certificates", "curl", "wget", "gnupg", "openssh-client", "git",
 	// locales and time zones (configured by the layer locales)
 	"locales", "tzdata",
+	// the dates of the Debian releases (support check of this layer)
+	"distro-info-data",
 	// libraries
 	"libc6", "libstdc++6", "libgcc-s1", "zlib1g", "libssl3t64", "libkrb5-3", "libgssapi-krb5-2",
 }
@@ -55,9 +58,21 @@ func init() {
 		Commands: []layer.Command{
 			{Name: "os-updates", Summary: "list the pending Debian package updates, --security: only security updates (root)", Run: osUpdates},
 		},
+		Check: func() error {
+			series, err := debian.InstalledSeries()
+			if err != nil {
+				return err
+			}
+			releases, err := debian.InstalledReleases()
+			if err != nil {
+				return err
+			}
+			return checkDebianRelease(releases, series, time.Now().UTC())
+		},
 		Test: func(t *layer.T) {
 			release, _ := sys.Output("sh", "-c", ". /etc/os-release && echo $PRETTY_NAME")
 			t.Version("debian", release)
+			t.Command("Debian release is supported (devcon check os)", "devcon", "check", "os")
 			for _, cmd := range []string{"zsh", "sudo", "git", "curl", "jq", "less", "nano", "ssh", "zip", "unzip", "rsync", "htop"} {
 				t.HasCommand(cmd)
 			}
@@ -86,6 +101,26 @@ func osUpdates(args []string) error {
 	}
 	fmt.Fprint(os.Stdout, debian.FormatUpdates(selected))
 	return nil
+}
+
+// checkDebianRelease returns an *layer.EndOfLifeError when the regular
+// security support of the Debian release series has ended on the day today
+// (column eol of the distro-info-data; the later LTS support does not count).
+func checkDebianRelease(releases []debian.Release, series string, today time.Time) error {
+	r, ok := debian.FindRelease(releases, series)
+	if !ok {
+		return fmt.Errorf("Debian release %q is not listed in %s", series, debian.DistroInfoFile)
+	}
+	if r.EOL.IsZero() || today.Before(r.EOL) {
+		return nil
+	}
+	return &layer.EndOfLifeError{
+		What:      "Debian " + r.Name(),
+		Since:     "regular security support ended on " + r.EOL.Format("2006-01-02"),
+		Source:    debian.DistroInfoFile + " (Debian package distro-info-data, https://www.debian.org/releases/)",
+		Supported: debian.SupportedReleases(releases, today),
+		Change:    "the Debian release in the FROM lines of the Dockerfile (for example buildpack-deps:" + series + "-curl and golang:<version>-" + series + ")",
+	}
 }
 
 // newestPackage returns the package with the highest version number in its
