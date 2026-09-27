@@ -79,7 +79,7 @@ func plan(args []string) error {
 	fs := flag.NewFlagSet("plan", flag.ExitOnError)
 	dir := fs.String("dir", env("GITHUB_WORKSPACE", "."), "root of the image repository")
 	image := fs.String("image", defaultImage(), "image name")
-	configPaths := fs.String("config-paths", ".devcontainer", "paths whose content is an input, separated by spaces")
+	configPaths := fs.String("config-paths", ".devcontainer README.md", "paths whose content is an input, separated by spaces")
 	major := fs.Int("major", 1, "major version")
 	maxAge := fs.Int("max-age-days", 7, "rebuild when the newest image is older")
 	force := fs.Bool("force", false, "release without a change")

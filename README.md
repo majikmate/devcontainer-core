@@ -215,8 +215,9 @@ jobs:
 The plan compares the inputs of the newest release (label `devcon.inputs`) with
 the current inputs:
 
-- `config`: the git tree of the configuration paths (for core also the Go
-  source),
+- `config`: the content of the configuration paths (input `config-paths`,
+  default `.devcontainer` and `README.md`, because GitHub shows the README on
+  the package page; for core also the Go source),
 - `image/<ref>`: the digest of every base image in the Dockerfile,
 - `tool/<name>`: the newest version of every tool of the layers in the
   Dockerfile (inside the pinned line).

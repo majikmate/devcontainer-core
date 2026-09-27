@@ -1,6 +1,12 @@
 package release
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/majikmate/devcontainer-core/pkg/sys"
+)
 
 func TestNextVersion(t *testing.T) {
 	cases := []struct{ last, step, want string }{
@@ -68,5 +74,52 @@ func TestHighestVersion(t *testing.T) {
 	}
 	if got := highestVersion(""); got != "" {
 		t.Errorf("highestVersion of no tags = %q", got)
+	}
+}
+
+// TestConfigInput checks that a change of the README (a file, not a folder)
+// changes the configuration input, and that the default paths include it.
+func TestConfigInput(t *testing.T) {
+	dir := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		if _, err := sys.Output("git", append([]string{"-C", dir, "-c", "user.name=test", "-c", "user.email=test@example.com"}, args...)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func(name, content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	git("init", "-q")
+	write(".devcontainer/Dockerfile", "FROM scratch\n")
+	write("README.md", "# Image\n")
+	git("add", ".")
+	git("commit", "-q", "-m", "first")
+	first, err := configInput(dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	write("README.md", "# Image\n\nMore text.\n")
+	git("commit", "-q", "-a", "-m", "README")
+	second, err := configInput(dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Error("a README change does not change the configuration input")
+	}
+	only, err := configInput(dir, []string{".devcontainer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if only == second {
+		t.Error("the default configuration input does not include README.md")
 	}
 }

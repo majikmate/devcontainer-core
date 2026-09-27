@@ -28,11 +28,15 @@ const (
 	LabelFingerprint = "devcon.fingerprint"
 )
 
+// defaultConfigPaths are the configuration paths of an image repository: the
+// Dev Container files and the README, which GitHub shows on the package page.
+var defaultConfigPaths = []string{".devcontainer", "README.md"}
+
 // PlanOptions are the settings of a release plan.
 type PlanOptions struct {
 	Dir         string   // root of the image repository
 	Image       string   // for example ghcr.io/majikmate/devcontainer-base
-	ConfigPaths []string // paths whose content is an input (default .devcontainer)
+	ConfigPaths []string // paths whose content is an input (default defaultConfigPaths)
 	Major       int      // major version
 	MaxAgeDays  int      // rebuild when the newest image is older
 	Force       bool     // release without a change
@@ -347,10 +351,11 @@ func highestVersion(out string) string {
 	return bestText
 }
 
-// configInput returns the Git tree id of the configuration paths.
+// configInput returns the Git object id of the configuration paths (a tree for
+// a folder, a blob for a file).
 func configInput(dir string, paths []string) (string, error) {
 	if len(paths) == 0 {
-		paths = []string{".devcontainer"}
+		paths = defaultConfigPaths
 	}
 	var trees []string
 	for _, path := range paths {
