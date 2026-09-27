@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -88,7 +89,11 @@ func Prune(o PruneOptions) error {
 		}
 		report = append(report, "")
 	}
+	// The report goes to the run summary and to the job log
 	Summary(strings.Join(report, "\n"))
+	if os.Getenv("GITHUB_STEP_SUMMARY") != "" {
+		fmt.Println(strings.Join(report, "\n"))
+	}
 	if len(failures) > 0 {
 		return fmt.Errorf("prune: %s", strings.Join(failures, "; "))
 	}
