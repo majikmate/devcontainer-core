@@ -247,7 +247,9 @@ func testGo(t *layer.T) {
 		defer cleanup()
 		_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"hello\") }\n"), 0o644)
 		_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/hello\n\ngo 1.21\n"), 0o644)
-		out := t.Output("build and run a program", "go", "run", dir)
+		// Inside the module folder: from another folder, "go run <dir>" fails
+		// because the folder is outside the main module
+		out := t.OutputIn("build and run a program", dir, "go", "run", ".")
 		t.Check("program prints hello", out == "hello")
 	}
 
