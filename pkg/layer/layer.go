@@ -2,8 +2,8 @@
 // image (for example Go or the SSH server). Each layer declares:
 //
 //   - its build arguments (read from the environment during the build),
-//   - its tools with their version sources (for the release tool), and for
-//     a pinnable tool the rules of its release lines (see Pin),
+//   - its tools with their version sources and the release choice of the
+//     feature: pinned line and channel (see Tool, Source and Config),
 //   - its entry of the devcontainer.metadata label (VS Code extensions and
 //     settings, container options, lifecycle commands),
 //   - its installation and its test,
@@ -32,23 +32,27 @@ type Arg struct {
 }
 
 // Tool is a tool that a layer installs in a version that the release tool
-// determines. The release tool passes the version as build argument Arg.
+// determines (see Resolve). The release tool passes the version as build
+// argument Arg.
 type Tool struct {
-	Name   string                 // name in the release notes, for example "go"
-	Arg    string                 // build argument, for example "GO_VERSION"
-	Newest func() (string, error) // newest version from the source that the layer installs from
-	// Pin makes the tool pinnable to a release line (optional, see Pin).
-	Pin *Pin
-	// ChannelArg and Channels let the Dockerfile choose a release channel
-	// (optional, see Channel). The first channel is the default. A tool with
-	// channels takes its newest version from the channel, not from Newest.
-	ChannelArg string
-	Channels   []Channel
+	Name string // name in the release notes and in customizations.devcon, for example "go"
+	Arg  string // build argument, for example "GO_VERSION"
+	// Source lists the releases of the tool.
+	Source *Source
+	// Version is the release choice of the feature: pinned line and channel.
+	// Empty: the newest release of the default channel.
+	Version Config
 	// Follows names an earlier tool of the same layer whose version decides
-	// the version of this tool, for example gopls follows go. NewestFor
-	// returns the newest version that works with the version of that tool.
-	Follows   string
+	// the version of this tool, for example gopls follows go. Works reports
+	// whether a release works with the version of that tool.
+	Follows string
+	Works   func(release, followed string) (bool, error)
+
+	// Deprecated: the version rule before Source, used only for a tool
+	// without Source (a features library that is not updated yet).
+	Newest    func() (string, error)
 	NewestFor func(version string) (string, error)
+	Pin       *Pin
 }
 
 // Layer is one installable part of an image.
@@ -114,7 +118,7 @@ func (e *Env) Arg(name string) string {
 		}
 	}
 	for _, t := range e.Layer.Tools {
-		if t.Arg == name || (t.Pin != nil && t.Pin.Arg == name) || (t.ChannelArg != "" && t.ChannelArg == name) {
+		if t.Arg == name {
 			return ""
 		}
 	}
@@ -123,31 +127,26 @@ func (e *Env) Arg(name string) string {
 
 // Version returns the version of a tool from its build argument (the release
 // workflow passes it). Without a build argument (for example in a local
-// build) it checks the pinned line and asks the version source (for a tool
-// with release channels, the channel of the build argument ChannelArg). A version
-// outside the pinned line and a pinned line at its end of life are errors.
+// build) it resolves the version with the configuration of the feature
+// (Tool.Version; the overrides of an image are known only to the release
+// plan). A pinned line at its end of life is an error.
 func (e *Env) Version(tool string) (string, error) {
 	for i := range e.Layer.Tools {
 		t := &e.Layer.Tools[i]
 		if t.Name != tool {
 			continue
 		}
-		line := ""
-		if t.Pin != nil {
-			line = os.Getenv(t.Pin.Arg)
-		}
+		// The release plan resolved the version (with the configuration of
+		// the feature and of the image), so the build takes it as it is.
 		if v := os.Getenv(t.Arg); v != "" && v != "latest" {
-			if line != "" && !InLine(v, line) {
-				return "", fmt.Errorf("%s=%s is not in the pinned line %s=%s", t.Arg, v, t.Pin.Arg, line)
-			}
 			return v, nil
 		}
-		if err := t.CheckPin(line); err != nil {
+		c, err := t.Effective(t.Version)
+		if err != nil {
 			return "", err
 		}
-		channel := ""
-		if t.ChannelArg != "" {
-			channel = os.Getenv(t.ChannelArg)
+		if err := t.CheckSupport(c); err != nil {
+			return "", err
 		}
 		followed := ""
 		if t.Follows != "" {
@@ -157,7 +156,7 @@ func (e *Env) Version(tool string) (string, error) {
 			}
 			followed = v
 		}
-		v, err := t.NewestVersion(line, channel, followed)
+		v, err := t.Resolve(c, followed)
 		if err != nil {
 			return "", fmt.Errorf("newest version of %s: %w", tool, err)
 		}

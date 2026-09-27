@@ -23,8 +23,8 @@ var osPackages = []string{
 	// files and text
 	"less", "nano", "vim-tiny", "jq", "tree", "ncdu", "rsync",
 	"zip", "unzip", "xz-utils", "bzip2",
-	// network and version control
-	"ca-certificates", "curl", "wget", "gnupg", "openssh-client", "git",
+	// network and version control (netbase: /etc/services and /etc/protocols)
+	"ca-certificates", "netbase", "curl", "wget", "gnupg", "openssh-client", "git",
 	// locales and time zones (configured by the layer locales)
 	"locales", "tzdata",
 	// the dates of the Debian releases (support check of this layer)
@@ -37,6 +37,15 @@ func init() {
 	layer.Register(&layer.Layer{
 		Name:    "os",
 		Summary: "upgrades all Debian packages and installs the basic tools",
+		// The Debian release: the release plan passes it as DEBIAN_SERIES,
+		// and the FROM line of the Dockerfile uses it
+		// (FROM debian:${DEBIAN_SERIES}).
+		// Pinned to trixie (Debian 13): a new Debian release is a decision,
+		// not an automatic change; the end of the regular security support
+		// stops the release.
+		Tools: []layer.Tool{
+			{Name: "debian", Arg: "DEBIAN_SERIES", Source: debianSource, Version: layer.Config{Pin: "trixie"}},
+		},
 		// Only at build time: the release workflow rebuilds the images when
 		// Debian publishes security updates (see "devcon os-updates").
 		Install: func(e *layer.Env) error {
@@ -70,8 +79,10 @@ func init() {
 			return checkDebianRelease(releases, series, time.Now().UTC())
 		},
 		Test: func(t *layer.T) {
+			series, _ := debian.InstalledSeries()
 			release, _ := sys.Output("sh", "-c", ". /etc/os-release && echo $PRETTY_NAME")
-			t.Version("debian", release)
+			t.Version("debian", series)
+			t.Version("debian-release", release)
 			t.Command("Debian release is supported (devcon check os)", "devcon", "check", "os")
 			for _, cmd := range []string{"zsh", "sudo", "git", "curl", "jq", "less", "nano", "ssh", "zip", "unzip", "rsync", "htop"} {
 				t.HasCommand(cmd)
@@ -119,8 +130,36 @@ func checkDebianRelease(releases []debian.Release, series string, today time.Tim
 		Since:     "regular security support ended on " + r.EOL.Format("2006-01-02"),
 		Source:    debian.DistroInfoFile + " (Debian package distro-info-data, https://www.debian.org/releases/)",
 		Supported: debian.SupportedReleases(releases, today),
-		Change:    "the Debian release in the FROM lines of the Dockerfile (for example buildpack-deps:" + series + "-curl and golang:<version>-" + series + ")",
+		Change:    debianChange,
 	}
+}
+
+// debianChange says where the Debian release is configured.
+const debianChange = "the pinned Debian release (Tool.Version of the tool debian in the layer os of devcontainer-core, or customizations.devcon.debian.pin in the devcontainer.json of the image)"
+
+// debianSource lists the released Debian releases, newest first. A release
+// line is a release series (for example "trixie" for Debian 13).
+var debianSource = &layer.Source{
+	Name:   "Debian releases (" + debian.DistroInfoURL + ")",
+	Policy: "a line is a Debian release series (for example trixie for Debian 13); it ends with the regular security support (column eol)",
+	Releases: func() ([]layer.Release, error) {
+		releases, err := debian.PublishedReleases()
+		if err != nil {
+			return nil, err
+		}
+		var result []layer.Release
+		for _, r := range debian.Released(releases, time.Now().UTC()) {
+			result = append(result, layer.Release{Version: r.Series})
+		}
+		return result, nil
+	},
+	Support: func(line string) error {
+		releases, err := debian.PublishedReleases()
+		if err != nil {
+			return err
+		}
+		return checkDebianRelease(releases, line, time.Now().UTC())
+	},
 }
 
 // newestPackage returns the package with the highest version number in its

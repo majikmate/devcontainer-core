@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -120,6 +121,39 @@ func InstalledSeries() (string, error) {
 		return "", fmt.Errorf("/etc/os-release has no VERSION_CODENAME")
 	}
 	return out, nil
+}
+
+// DistroInfoURL is the source of DistroInfoFile in the repository of the
+// Debian package distro-info-data. The release plan reads it, because it runs
+// outside of the image.
+const DistroInfoURL = "https://salsa.debian.org/debian/distro-info-data/-/raw/main/debian.csv"
+
+// PublishedReleases reads the Debian releases from DistroInfoURL, or from
+// DistroInfoFile of the running system when the URL cannot be read (for
+// example on a GitHub runner, which has the package distro-info-data).
+func PublishedReleases() ([]Release, error) {
+	data, err := sys.Get(DistroInfoURL)
+	if err != nil {
+		local, localErr := InstalledReleases()
+		if localErr != nil {
+			return nil, fmt.Errorf("%w; %v", err, localErr)
+		}
+		return local, nil
+	}
+	return ParseDistroInfo(string(data))
+}
+
+// Released returns the releases that are released on the day today, newest
+// first.
+func Released(releases []Release, today time.Time) []Release {
+	var result []Release
+	for _, r := range releases {
+		if !r.Release.IsZero() && !r.Release.After(today) {
+			result = append(result, r)
+		}
+	}
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Release.After(result[j].Release) })
+	return result
 }
 
 // InstalledReleases reads DistroInfoFile.

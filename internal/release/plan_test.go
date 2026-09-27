@@ -5,8 +5,49 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/majikmate/devcontainer-core/pkg/layer"
 	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
+
+// TestProjectTools: the overrides of customizations.devcon in the
+// devcontainer.json of an image.
+func TestProjectTools(t *testing.T) {
+	dir := t.TempDir()
+	devDir := filepath.Join(dir, ".devcontainer")
+	if err := os.MkdirAll(devDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	config := `{
+  // comment
+  "build": {"dockerfile": "Dockerfile"},
+  "customizations": {
+    "vscode": {"extensions": ["a.b"]},
+    "devcon": {"deno": {"channel": "stable"}, "prettier": {"pin": "3"}, "go": {"pin": ""}}
+  }
+}`
+	if err := os.WriteFile(filepath.Join(devDir, "devcontainer.json"), []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	project, err := ReadProject(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature := layer.Config{Pin: "2", Channel: "lts"}
+	if got := project.Tools["deno"].apply(feature); got != (layer.Config{Pin: "2", Channel: "stable"}) {
+		t.Errorf("deno = %+v", got)
+	}
+	if got := project.Tools["prettier"].apply(layer.Config{}); got != (layer.Config{Pin: "3"}) {
+		t.Errorf("prettier = %+v", got)
+	}
+	// "pin": "" removes the pin of the feature
+	if got := project.Tools["go"].apply(layer.Config{Pin: "1.27"}); got != (layer.Config{}) {
+		t.Errorf("go = %+v", got)
+	}
+	// A tool without an override keeps the configuration of the feature
+	if got := project.Tools["node"].apply(feature); got != feature {
+		t.Errorf("node = %+v", got)
+	}
+}
 
 func TestNextVersion(t *testing.T) {
 	cases := []struct{ last, step, want string }{

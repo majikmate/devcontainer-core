@@ -314,19 +314,31 @@ func markdownLayers() {
 			fmt.Println()
 		}
 		if len(l.Tools) > 0 {
-			fmt.Println("Tools with versions (the release workflow passes the newest version as build argument; without it the layer installs the newest version):")
+			fmt.Println("Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devcon` of the devcontainer.json, and passes it as build argument):")
 			fmt.Println()
 			for _, t := range l.Tools {
 				fmt.Printf("- %s: `%s`", t.Name, t.Arg)
-				if len(t.Channels) > 0 {
-					var channels []string
-					for _, c := range t.Channels {
-						channels = append(channels, fmt.Sprintf("`%s` (%s)", c.Name, c.Label))
+				if s := t.Source; s != nil {
+					fmt.Printf("; source: %s", s.Name)
+					pin := "none (the newest release)"
+					if t.Version.Pin != "" {
+						pin = "`" + t.Version.Pin + "`"
 					}
-					fmt.Printf("; choose the release channel with `%s`: %s; default `%s`", t.ChannelArg, strings.Join(channels, ", "), t.Channels[0].Name)
-				}
-				if t.Pin != nil {
-					fmt.Printf("; pin the release line with `%s` (for example `ARG %s=%s`): %s", t.Pin.Arg, t.Pin.Arg, t.Pin.Example, t.Pin.Policy)
+					fmt.Printf("; pinned line: %s", pin)
+					if len(s.Channels) > 0 {
+						var channels []string
+						for _, c := range s.Channels {
+							channels = append(channels, fmt.Sprintf("`%s` (%s)", c.Name, c.Label))
+						}
+						channel := t.Version.Channel
+						if channel == "" {
+							channel = s.Channels[0].Name
+						}
+						fmt.Printf("; channel: `%s` (channels: %s)", channel, strings.Join(channels, ", "))
+					}
+					if s.Policy != "" {
+						fmt.Printf("; %s", s.Policy)
+					}
 				}
 				if t.Follows != "" {
 					fmt.Printf("; follows %s: the newest version that works with the installed %s", t.Follows, t.Follows)
@@ -335,7 +347,7 @@ func markdownLayers() {
 			}
 			fmt.Println()
 			for _, t := range l.Tools {
-				if t.Pin != nil {
+				if t.Source != nil && t.Source.Support != nil {
 					fmt.Println("With a pin, the layer installs the newest release inside the pinned line. When the line reaches its end of life, the build fails and names the supported lines.")
 					fmt.Println()
 					break

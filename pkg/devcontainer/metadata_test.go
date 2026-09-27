@@ -33,10 +33,13 @@ func TestImageEntry(t *testing.T) {
   "name": "X",
   "build": {"dockerfile": "Dockerfile"},
   "remoteUser": "dev",
-  "customizations": {"vscode": {"extensions": ["a.b"]}},
+  "customizations": {"vscode": {"extensions": ["a.b"]}, "devcon": {"deno": {"channel": "stable"}}},
 }`))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if c, _ := entry["customizations"].(map[string]any); c["devcon"] != nil || c["vscode"] == nil {
+		t.Errorf("customizations = %v, want vscode without devcon", entry["customizations"])
 	}
 	if _, ok := entry["build"]; ok {
 		t.Error("build must not be in the label")

@@ -74,7 +74,6 @@ that builds on core) and adds layers:
 ```dockerfile
 FROM ghcr.io/majikmate/devcontainer-core:1
 
-ARG DENO_PIN=2
 ARG DENO_VERSION
 RUN devcon install deno
 ```
@@ -82,36 +81,81 @@ RUN devcon install deno
 - One `RUN devcon install <layer>` per layer, so every layer is one Docker
   layer.
 - Declare the build arguments of a layer as `ARG` right before its `RUN` line
-  ([docs/layers.md](docs/layers.md)). The release workflow passes the newest
-  tool versions; without them, the layer installs the newest version.
+  ([docs/layers.md](docs/layers.md)). The release workflow passes the chosen
+  tool versions (see [Versions](#versions)); without them, the layer chooses
+  the version itself with the same rule.
 - A layer checks that the layers it needs are installed.
 - The `.devcontainer/devcontainer.json` keeps the VS Code settings of the
   image. The release workflow writes them, together with the settings of all
   layers, into the image label `devcontainer.metadata`.
 
-**Pinned release lines.** `ARG <TOOL>_PIN=<line>` in the Dockerfile that
-installs the layer pins a release line (Go, Node.js, Deno; rules in
-[devcontainer-features](https://github.com/majikmate/devcontainer-features#pinned-release-lines)).
-The layer installs the newest release inside the line. At the end of life of
-the line, the release check and the build fail; there is no warning before.
-The message names the line, the reason, the source and the supported lines:
+## Versions
+
+**A Dockerfile never decides a version.** One general rule
+([`pkg/layer/version.go`](pkg/layer/version.go)) chooses the version of every
+tool:
+
+1. The **source** of the tool lists its releases, newest first (for example
+   the npm registry, the GitHub releases, the Go module proxy; general sources
+   in [`pkg/versions`](pkg/versions)).
+2. The **feature decides** the release line (`pin`) and the release channel
+   (`channel`) in `Tool.Version`. Empty means the newest release of the
+   default channel.
+3. The `devcontainer.json` of the image that installs the layer **can
+   override** it with the same keys (no image uses an override today):
+
+   ```jsonc
+   "customizations": {
+     "devcon": {
+       "deno": { "channel": "stable" },
+       "prettier": { "pin": "3" }
+     }
+   }
+   ```
+
+   `"pin": ""` removes the pin of the feature. An override of a tool that the
+   image does not install stops the release.
+4. The version is the newest release in the channel and in the line. A tool
+   that follows another tool (gopls follows go) gets the newest of these
+   releases that works with the version of that tool.
+
+The release notes show the result as inputs `tool/<name>`, `pin/<name>` and
+`channel/<name>`.
+
+| Tool | Layer | Pin | Channel |
+| ---- | ----- | --- | ------- |
+| `debian` | `os` (core) | `trixie` (Debian 13) | — |
+| `go` | `go` (features) | `1.27` | — |
+| `node` | `node` (features) | `24` | `lts` (or `current`) |
+| `deno` | `deno` (features) | `2` | `lts` (or `stable`) |
+| all other tools | | none: the newest release | — |
+
+**End of life.** A source can have a support rule (Go, Node.js, Deno,
+Debian). At the end of life of a pinned line, the release check and the build
+fail; there is no warning before. The message names the line, the reason,
+the source and the supported lines:
 
 ```text
-go 1.27 (GO_PIN=1.27) has reached its end of life (Go 1.29.0 was released; Go supports the two newest major releases).
-Source: https://go.dev/doc/devel/release#policy. Change ARG GO_PIN in the Dockerfile to a supported version (supported: 1.28, 1.29).
+go 1.27 (pinned line) has reached its end of life (Go 1.29.0 was released; Go supports the two newest major releases).
+Source: https://go.dev/doc/devel/release#policy. Change the pinned line of go (Tool.Version of its layer, or
+customizations.devcon.go.pin in the devcontainer.json of the image) to a supported version (supported: 1.28, 1.29).
 ```
 
-**Release channels.** `ARG <TOOL>_CHANNEL=<channel>` chooses the release
-channel of a tool that has channels (Node.js `lts` or `current`, Deno `lts` or
-`stable`; the default is `lts`). The layer installs the newest release of the
-channel; with a pin, only when it is inside the pinned line, otherwise the
-newest release of the line. The release notes show the channel as input
-`channel/<tool>`.
+**Debian.** The tool `debian` of the layer `os` chooses the Debian release
+(series). The release plan passes it as `DEBIAN_SERIES`, and the core
+Dockerfile uses it in `FROM debian:${DEBIAN_SERIES}` (both stages; no other
+prebuilt image).
 
-The Debian release has the same check (layer `os`): when its regular security
-support ends (column `eol` of `distro-info-data`), the build and the nightly
-check of core fail. The fix is a newer Debian release in the `FROM` lines of
-the core Dockerfile.
+**The Go toolchain that builds `devcon`** is not the Go of the feature `go`:
+it is the newest release of the Go line in this repository's
+[`go.mod`](go.mod) (`go 1.27` → the newest 1.27.x). The release plan resolves
+it (input `tool/devcon-go`) and passes it as `DEVCON_GO_VERSION`; at the end
+of life of the line (Go 1.29.0 released), the release stops. The build stage
+installs the Go package of Debian only to start the build: `GOTOOLCHAIN`
+makes it download that toolchain from the Go module proxy and check it
+against the Go checksum database. The release tool itself runs with the same
+line (`actions/setup-go` with `go-version-file: go.mod`). The layer
+`os` also checks the installed release in the image (`devcon check os`).
 
 ## Layers
 
@@ -128,7 +172,7 @@ the distribution, otherwise in devcontainer-features. It declares:
 | `Name` | name used in `devcon install <name>` |
 | `Needs` | layers that must be installed before |
 | `Args` | build arguments with default values |
-| `Tools` | tools with a build argument, a function for the newest version, optional release channels and an optional pin |
+| `Tools` | tools with a build argument, a version source and the release choice of the feature (pin, channel) |
 | `Metadata` | VS Code settings and container options for the label `devcontainer.metadata` |
 | `Install` | installation (root, during the build) |
 | `Test` | test in the built image (user `dev`) |
@@ -140,7 +184,7 @@ the distribution, otherwise in devcontainer-features. It declares:
 
 | Package | Content |
 | ------- | ------- |
-| [`pkg/layer`](pkg/layer) | layer definition, registry, pinned release lines, release channels, test helpers |
+| [`pkg/layer`](pkg/layer) | layer definition, registry, version rule (sources, pins, channels), test helpers |
 | [`pkg/sys`](pkg/sys) | commands, downloads with checksum, archives, users, files |
 | [`pkg/debian`](pkg/debian) | apt, pending package updates, Debian releases |
 | [`pkg/shellrc`](pkg/shellrc) | settings for bash and zsh |
@@ -225,11 +269,12 @@ the current inputs:
 - `config`: the content of the configuration paths (input `config-paths`,
   default `.devcontainer` and `README.md`, because GitHub shows the README on
   the package page; for core also the Go source),
-- `image/<ref>`: the digest of every base image in the Dockerfile,
-- `tool/<name>`: the newest version of every tool of the layers in the
-  Dockerfile (from the chosen release channel, inside the pinned line),
-- `channel/<name>`: the release channel of a tool with channels, for example
-  `channel/deno=lts`.
+- `image/<ref>`: the digest of every base image in the Dockerfile (with the
+  build arguments of the plan, for example `DEBIAN_SERIES`),
+- `tool/<name>`: the version of every tool of the layers in the Dockerfile
+  (see [Versions](#versions)),
+- `pin/<name>` and `channel/<name>`: the pinned line and the channel of a
+  tool, for example `pin/deno=2` and `channel/deno=lts`.
 
 First, the plan checks the pinned lines and runs `devcon check` in the newest
 image; an end of life stops the run. A new version is released when:

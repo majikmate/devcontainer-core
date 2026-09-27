@@ -1,6 +1,6 @@
 # devcontainer-core: the base of all Dev Container images.
 #
-# Debian 13 with the development user "dev", zsh, locales, git settings, the
+# Debian (trixie, layer os) with the development user "dev", zsh, locales, git settings, the
 # Pure prompt and the SSH server. It contains the program devcon, which installs
 # the layers; every image that builds on this image uses it:
 #
@@ -9,12 +9,27 @@
 #   RUN devcon install deno
 #
 # The release workflow passes the tool versions as build arguments and sets the
-# labels (OCI and devcontainer.metadata).
+# labels (OCI and devcontainer.metadata). This file never decides a version:
+# the layers do (and the devcontainer.json of an image can override them).
+
+# The Debian release (series, for example trixie): the tool debian of the
+# layer os decides it; the release workflow passes it.
+ARG DEBIAN_SERIES
 
 # ── devcon: built from source, static (no C libraries) ───────────────────────
 # The framework and the Debian-bound layers come from this repository, the
 # distribution-independent layers from devcontainer-features.
-FROM golang:1.27-trixie AS devcon
+# The Go toolchain is the newest release of the Go line in go.mod (for
+# example 1.27 → 1.27.1; the release workflow resolves it and stops at the end
+# of life of the line). It is not the Go of the feature go. The Go package of
+# Debian only starts the build: GOTOOLCHAIN makes it download that toolchain
+# from the Go module proxy and check it against the Go checksum database.
+FROM debian:${DEBIAN_SERIES} AS devcon
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends golang-go ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+ARG DEVCON_GO_VERSION
+ENV GOTOOLCHAIN=go${DEVCON_GO_VERSION}
 WORKDIR /src
 COPY go.mod go.sum ./
 COPY cmd ./cmd
@@ -27,7 +42,8 @@ RUN go get github.com/majikmate/devcontainer-features@${FEATURES_VERSION}
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/devcon ./cmd/devcon
 
 # ── image ────────────────────────────────────────────────────────────────────
-FROM buildpack-deps:trixie-curl
+# The Debian image; the layer os installs the basic tools.
+FROM debian:${DEBIAN_SERIES}
 COPY --from=devcon /out/devcon /usr/local/bin/devcon
 
 # os: Debian upgrade and basic tools

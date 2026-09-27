@@ -72,6 +72,14 @@ func ImageEntry(id string, devcontainerJSON []byte) (Entry, error) {
 			entry[key] = value
 		}
 	}
+	// customizations.devcon is the release configuration of the image (read
+	// by the release plan); the label records the result as inputs instead.
+	if c, ok := entry["customizations"].(map[string]any); ok {
+		delete(c, "devcon")
+		if len(c) == 0 {
+			delete(entry, "customizations")
+		}
+	}
 	return entry, nil
 }
 
