@@ -76,7 +76,7 @@ RUN devcon install go
   this information and the supported lines, for example:
 
   ```text
-  go 1.27 (GO_PIN=1.27) has reached its end of life (Go 1.29.0 was released; Go supports the two newest releases).
+  go 1.27 (GO_PIN=1.27) has reached its end of life (Go 1.29.0 was released; Go supports the two newest major releases).
   Source: https://go.dev/doc/devel/release#policy. Change ARG GO_PIN in the Dockerfile to a supported version (supported: 1.28, 1.29).
   ```
 
