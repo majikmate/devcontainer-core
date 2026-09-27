@@ -9,7 +9,7 @@
 #   prepare   collect the inputs, decide, compute the version (devcon-release plan)
 #   build     build, label and test the image per architecture (devcon-release build)
 #   publish   multi-architecture tags and GitHub release (devcon-release publish)
-#   prune     list or delete the outdated package versions (devcon-release prune)
+#   prune     delete the outdated package versions (devcon-release prune)
 name: "Shared: Dev Container image"
 
 on:
@@ -56,9 +56,13 @@ on:
         type: string
         default: ""
       prune:
-        description: "Outdated package versions (untagged and not used, buildcache-*, major versions below major-version): report (list them in the run summary), apply (delete them) or off"
+        description: "Outdated package versions (untagged and not used, buildcache-*, major versions below major-version, releases older than prune-max-age-days): apply (delete them, the default), report (only list them in the run summary) or off"
         type: string
-        default: report
+        default: apply
+      prune-max-age-days:
+        description: Releases of the current major line older than this number of days are outdated; the newest release is always kept (0 keeps all)
+        type: number
+        default: 90
     secrets:
       app-client-id:
         description: Client ID of the GitHub App that starts the upstream workflows (only with update-upstream)
@@ -339,4 +343,5 @@ jobs:
         run: >-
           go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
+          --max-age-days "${{ inputs.prune-max-age-days }}"
           --mode "${{ inputs.prune }}"

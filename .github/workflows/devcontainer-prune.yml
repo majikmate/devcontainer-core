@@ -2,10 +2,13 @@
 # of the calling repository (devcon-release prune).
 #
 # Used by the manual workflow prune.yml of every image repository. Outdated
-# versions: untagged versions that no kept image refers to, the tags
-# buildcache-* of the former release workflow, and the versions of major lines
-# below major-version. The parts of kept multi-architecture images are never
-# deleted.
+# versions (scope "outdated"): untagged versions that no kept image refers to,
+# the tags buildcache-* of the former release workflow, the versions of major
+# lines below major-version, and the releases of the current major line older
+# than max-age-days. Scope "all-but-newest" (a one-time clean-up) treats every
+# release of the current major line except the newest as outdated. The newest
+# release, the moving tags (2, 2.0, latest) and the parts of kept
+# multi-architecture images are never deleted.
 name: "Shared: Prune package versions"
 
 on:
@@ -15,10 +18,18 @@ on:
         description: report (list them in the run summary and the log) or apply (delete them; this cannot be undone)
         type: string
         default: report
+      scope:
+        description: outdated (the rules above) or all-but-newest (every release of the current major line except the newest)
+        type: string
+        default: outdated
       major-version:
         description: Current major version of the image; the versions of lower major lines are outdated
         type: number
         required: true
+      max-age-days:
+        description: Releases of the current major line older than this number of days are outdated (0 keeps all)
+        type: number
+        default: 90
 
 env:
   CGO_ENABLED: "0"
@@ -52,4 +63,6 @@ jobs:
         run: >-
           go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
+          --max-age-days "${{ inputs.max-age-days }}"
+          --all-but-newest="${{ inputs.scope == 'all-but-newest' }}"
           --mode "${{ inputs.mode }}"
