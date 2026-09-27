@@ -318,6 +318,13 @@ func markdownLayers() {
 			fmt.Println()
 			for _, t := range l.Tools {
 				fmt.Printf("- %s: `%s`", t.Name, t.Arg)
+				if len(t.Channels) > 0 {
+					var channels []string
+					for _, c := range t.Channels {
+						channels = append(channels, fmt.Sprintf("`%s` (%s)", c.Name, c.Label))
+					}
+					fmt.Printf("; choose the release channel with `%s`: %s; default `%s`", t.ChannelArg, strings.Join(channels, ", "), t.Channels[0].Name)
+				}
 				if t.Pin != nil {
 					fmt.Printf("; pin the release line with `%s` (for example `ARG %s=%s`): %s", t.Pin.Arg, t.Pin.Arg, t.Pin.Example, t.Pin.Policy)
 				}

@@ -73,13 +73,29 @@ func (t *Tool) CheckPin(line string) error {
 	return nil
 }
 
-// NewestVersion returns the version to install: the newest release inside the
-// pinned line, the newest release that works with the version of the tool it
-// follows, or the newest release.
-func (t *Tool) NewestVersion(line, followed string) (string, error) {
-	switch {
-	case line != "" && t.Pin == nil:
+// NewestVersion returns the version to install:
+//
+//   - with release channels: the newest release of the channel (empty = the
+//     default channel); with a pinned line, only when it is inside the line,
+//     otherwise the newest release inside the line,
+//   - the newest release inside the pinned line,
+//   - the newest release that works with the version of the tool it follows,
+//   - or the newest release.
+func (t *Tool) NewestVersion(line, channel, followed string) (string, error) {
+	if line != "" && t.Pin == nil {
 		return "", fmt.Errorf("tool %s cannot be pinned", t.Name)
+	}
+	c, err := t.Channel(channel)
+	if err != nil {
+		return "", err
+	}
+	switch {
+	case c != nil:
+		v, err := c.Newest()
+		if line == "" || (err == nil && InLine(v, line)) {
+			return v, err
+		}
+		return t.Pin.Newest(line)
 	case line != "":
 		return t.Pin.Newest(line)
 	case t.Follows != "" && t.NewestFor != nil && followed != "":

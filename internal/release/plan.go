@@ -140,8 +140,9 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 		}
 	}
 	// 3. Tools: the newest versions of the tools of the installed layers,
+	// from the chosen release channels (ARG <TOOL>_CHANNEL=<channel>) and
 	// inside the pinned release lines (ARG <TOOL>_PIN=<line>); a pinned line
-	// at its end of life stops the release
+	// at its end of life and an unknown channel stop the release
 	for _, name := range dockerfile.Layers {
 		l, err := layer.Get(name)
 		if err != nil {
@@ -160,7 +161,19 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 				}
 				warning("Could not check the support of %s %s: %v", tool.Name, line, err)
 			}
-			version, err := tool.NewestVersion(line, p.ToolVersion[tool.Follows])
+			channel, err := tool.Channel(dockerfile.ArgDefaults[tool.ChannelArg])
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", project.Dockerfile, err)
+			}
+			channelName := ""
+			if channel != nil {
+				// Recorded in the image, so the release notes show the channel
+				channelName = channel.Name
+				if err := add("channel/"+tool.Name, channelName); err != nil {
+					return nil, err
+				}
+			}
+			version, err := tool.NewestVersion(line, channelName, p.ToolVersion[tool.Follows])
 			if err != nil {
 				warning("Could not read the newest version of %s: %v", tool.Name, err)
 				version = ""

@@ -101,6 +101,13 @@ go 1.27 (GO_PIN=1.27) has reached its end of life (Go 1.29.0 was released; Go su
 Source: https://go.dev/doc/devel/release#policy. Change ARG GO_PIN in the Dockerfile to a supported version (supported: 1.28, 1.29).
 ```
 
+**Release channels.** `ARG <TOOL>_CHANNEL=<channel>` chooses the release
+channel of a tool that has channels (Node.js `lts` or `current`, Deno `lts` or
+`stable`; the default is `lts`). The layer installs the newest release of the
+channel; with a pin, only when it is inside the pinned line, otherwise the
+newest release of the line. The release notes show the channel as input
+`channel/<tool>`.
+
 The Debian release has the same check (layer `os`): when its regular security
 support ends (column `eol` of `distro-info-data`), the build and the nightly
 check of core fail. The fix is a newer Debian release in the `FROM` lines of
@@ -121,7 +128,7 @@ the distribution, otherwise in devcontainer-features. It declares:
 | `Name` | name used in `devcon install <name>` |
 | `Needs` | layers that must be installed before |
 | `Args` | build arguments with default values |
-| `Tools` | tools with a build argument, a function for the newest version and an optional pin |
+| `Tools` | tools with a build argument, a function for the newest version, optional release channels and an optional pin |
 | `Metadata` | VS Code settings and container options for the label `devcontainer.metadata` |
 | `Install` | installation (root, during the build) |
 | `Test` | test in the built image (user `dev`) |
@@ -133,7 +140,7 @@ the distribution, otherwise in devcontainer-features. It declares:
 
 | Package | Content |
 | ------- | ------- |
-| [`pkg/layer`](pkg/layer) | layer definition, registry, pinned release lines, test helpers |
+| [`pkg/layer`](pkg/layer) | layer definition, registry, pinned release lines, release channels, test helpers |
 | [`pkg/sys`](pkg/sys) | commands, downloads with checksum, archives, users, files |
 | [`pkg/debian`](pkg/debian) | apt, pending package updates, Debian releases |
 | [`pkg/shellrc`](pkg/shellrc) | settings for bash and zsh |
@@ -220,7 +227,9 @@ the current inputs:
   the package page; for core also the Go source),
 - `image/<ref>`: the digest of every base image in the Dockerfile,
 - `tool/<name>`: the newest version of every tool of the layers in the
-  Dockerfile (inside the pinned line).
+  Dockerfile (from the chosen release channel, inside the pinned line),
+- `channel/<name>`: the release channel of a tool with channels, for example
+  `channel/deno=lts`.
 
 First, the plan checks the pinned lines and runs `devcon check` in the newest
 image; an end of life stops the run. A new version is released when:

@@ -39,6 +39,11 @@ type Tool struct {
 	Newest func() (string, error) // newest version from the source that the layer installs from
 	// Pin makes the tool pinnable to a release line (optional, see Pin).
 	Pin *Pin
+	// ChannelArg and Channels let the Dockerfile choose a release channel
+	// (optional, see Channel). The first channel is the default. A tool with
+	// channels takes its newest version from the channel, not from Newest.
+	ChannelArg string
+	Channels   []Channel
 	// Follows names an earlier tool of the same layer whose version decides
 	// the version of this tool, for example gopls follows go. NewestFor
 	// returns the newest version that works with the version of that tool.
@@ -109,7 +114,7 @@ func (e *Env) Arg(name string) string {
 		}
 	}
 	for _, t := range e.Layer.Tools {
-		if t.Arg == name || (t.Pin != nil && t.Pin.Arg == name) {
+		if t.Arg == name || (t.Pin != nil && t.Pin.Arg == name) || (t.ChannelArg != "" && t.ChannelArg == name) {
 			return ""
 		}
 	}
@@ -118,7 +123,8 @@ func (e *Env) Arg(name string) string {
 
 // Version returns the version of a tool from its build argument (the release
 // workflow passes it). Without a build argument (for example in a local
-// build) it checks the pinned line and asks the version source. A version
+// build) it checks the pinned line and asks the version source (for a tool
+// with release channels, the channel of the build argument ChannelArg). A version
 // outside the pinned line and a pinned line at its end of life are errors.
 func (e *Env) Version(tool string) (string, error) {
 	for i := range e.Layer.Tools {
@@ -139,6 +145,10 @@ func (e *Env) Version(tool string) (string, error) {
 		if err := t.CheckPin(line); err != nil {
 			return "", err
 		}
+		channel := ""
+		if t.ChannelArg != "" {
+			channel = os.Getenv(t.ChannelArg)
+		}
 		followed := ""
 		if t.Follows != "" {
 			v, err := e.Version(t.Follows)
@@ -147,7 +157,7 @@ func (e *Env) Version(tool string) (string, error) {
 			}
 			followed = v
 		}
-		v, err := t.NewestVersion(line, followed)
+		v, err := t.NewestVersion(line, channel, followed)
 		if err != nil {
 			return "", fmt.Errorf("newest version of %s: %w", tool, err)
 		}
