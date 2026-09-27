@@ -1,3 +1,6 @@
+# check=skip=InvalidDefaultArgInFrom
+# (DEBIAN_SERIES has no default on purpose: the release workflow passes it.)
+#
 # devcontainer-core: the base of all Dev Container images.
 #
 # Debian (trixie, layer os) with the development user "dev", zsh, locales, git settings, the
