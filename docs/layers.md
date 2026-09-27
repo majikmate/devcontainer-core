@@ -16,7 +16,7 @@ the features version of `go.mod`; the images use the newest features version.
 | [`github-cli`](#github-cli) | GitHub CLI (gh) from the GitHub release archive |  | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`go`](#go) | Go, gopls, dlv, staticcheck, govulncheck and golangci-lint | user | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`locales`](#locales) | generates the locales of LANG and LC_* and sets the time zone TZ | os | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
-| [`node`](#node) | nvm, the newest Node.js LTS release and npm | user, build-tools | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
+| [`node`](#node) | nvm, Node.js (the newest LTS release of the line 24) and npm | user, build-tools | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`os`](#os) | upgrades all Debian packages and installs the basic tools |  | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
 | [`playwright-deps`](#playwright-deps) | system libraries of the Playwright browsers (the projects install the browsers) | node | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
 | [`prettier`](#prettier) | Prettier with the Tailwind CSS plugin and a global configuration | node | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
@@ -58,12 +58,17 @@ Needs the layers: user.
 
 Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devenv` of the devcontainer.json, and passes it as build argument):
 
-- deno: `DENO_VERSION`
+- deno: `DENO_VERSION`; source: Deno releases (https://github.com/denoland/deno/releases, https://dl.deno.land/release-lts-latest.txt); pinned line: `2`; channel: `lts` (channels: `lts` (long-term support, exactly the release in https://dl.deno.land/release-lts-latest.txt), `stable` (all releases)); a line is a Deno major release; it ends when Deno publishes a newer major release (https://github.com/denoland/deno/releases)
+
+With a pin, the layer installs the newest release inside the pinned line. When the line reaches its end of life, the build fails and names the supported lines.
 
 Entry in the image label `devcontainer.metadata`:
 
 ```json
 {
+  "containerEnv": {
+    "DENO_NO_UPDATE_CHECK": "1"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -108,7 +113,7 @@ Source: [devcontainer-features](https://github.com/majikmate/devcontainer-featur
 
 Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devenv` of the devcontainer.json, and passes it as build argument):
 
-- gh: `GITHUB_CLI_VERSION`
+- gh: `GITHUB_CLI_VERSION`; source: GitHub releases (https://github.com/cli/cli/releases); pinned line: none (the newest release)
 
 
 ## go
@@ -123,12 +128,14 @@ Needs the layers: user.
 
 Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devenv` of the devcontainer.json, and passes it as build argument):
 
-- go: `GO_VERSION`
-- golangci-lint: `GOLANGCI_LINT_VERSION`
-- gopls: `GOPLS_VERSION`
-- dlv: `DLV_VERSION`
-- staticcheck: `STATICCHECK_VERSION`
-- govulncheck: `GOVULNCHECK_VERSION`
+- go: `GO_VERSION`; source: Go releases (https://go.dev/dl/?mode=json&include=all); pinned line: `1.27`; a line is a Go major release 1.N; it ends when Go 1.(N+2) is released (Go supports the two newest major releases, https://go.dev/doc/devel/release#policy)
+- golangci-lint: `GOLANGCI_LINT_VERSION`; source: GitHub releases (https://github.com/golangci/golangci-lint/releases); pinned line: none (the newest release)
+- gopls: `GOPLS_VERSION`; source: Go module proxy (golang.org/x/tools/gopls); pinned line: none (the newest release); follows go: the newest version that works with the installed go
+- dlv: `DLV_VERSION`; source: Go module proxy (github.com/go-delve/delve); pinned line: none (the newest release); follows go: the newest version that works with the installed go
+- staticcheck: `STATICCHECK_VERSION`; source: Go module proxy (honnef.co/go/tools); pinned line: none (the newest release); follows go: the newest version that works with the installed go
+- govulncheck: `GOVULNCHECK_VERSION`; source: Go module proxy (golang.org/x/vuln); pinned line: none (the newest release); follows go: the newest version that works with the installed go
+
+With a pin, the layer installs the newest release inside the pinned line. When the line reaches its end of life, the build fails and names the supported lines.
 
 Entry in the image label `devcontainer.metadata`:
 
@@ -183,7 +190,7 @@ Build arguments:
 
 ## node
 
-Nvm, the newest Node.js LTS release and npm.
+Nvm, Node.js (the newest LTS release of the line 24) and npm.
 
 Dockerfile: `RUN devenv install node`
 
@@ -193,9 +200,21 @@ Needs the layers: user, build-tools.
 
 Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devenv` of the devcontainer.json, and passes it as build argument):
 
-- nvm: `NVM_VERSION`
-- node: `NODE_VERSION`
+- nvm: `NVM_VERSION`; source: GitHub releases (https://github.com/nvm-sh/nvm/releases); pinned line: none (the newest release)
+- node: `NODE_VERSION`; source: Node.js releases (https://nodejs.org/dist/index.json); pinned line: `24`; channel: `lts` (channels: `lts` (long-term support, the releases of an LTS line), `current` (all releases)); a line is a Node.js major release; it ends on its end date in the Node.js release schedule (https://github.com/nodejs/Release#release-schedule)
 
+With a pin, the layer installs the newest release inside the pinned line. When the line reaches its end of life, the build fails and names the supported lines.
+
+Entry in the image label `devcontainer.metadata`:
+
+```json
+{
+  "containerEnv": {
+    "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+  },
+  "id": "devenv/node"
+}
+```
 
 ## os
 
@@ -245,8 +264,8 @@ Needs the layers: node.
 
 Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devenv` of the devcontainer.json, and passes it as build argument):
 
-- prettier: `PRETTIER_VERSION`
-- prettier-plugin-tailwindcss: `PRETTIER_PLUGIN_TAILWINDCSS_VERSION`
+- prettier: `PRETTIER_VERSION`; source: npm registry (https://www.npmjs.com/package/prettier); pinned line: none (the newest release)
+- prettier-plugin-tailwindcss: `PRETTIER_PLUGIN_TAILWINDCSS_VERSION`; source: npm registry (https://www.npmjs.com/package/prettier-plugin-tailwindcss); pinned line: none (the newest release)
 
 Entry in the image label `devcontainer.metadata`:
 
@@ -278,7 +297,7 @@ Needs the layers: user.
 
 Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devenv` of the devcontainer.json, and passes it as build argument):
 
-- pure: `PURE_VERSION`
+- pure: `PURE_VERSION`; source: GitHub releases (https://github.com/sindresorhus/pure/releases); pinned line: none (the newest release)
 
 
 ## sshd

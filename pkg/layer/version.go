@@ -116,7 +116,7 @@ func (t *Tool) CheckSupport(c Config) error {
 // with the followed version.
 func (t *Tool) Resolve(c Config, followed string) (string, error) {
 	if t.Source == nil {
-		return t.legacyNewest(followed)
+		return "", fmt.Errorf("tool %s has no version source", t.Name)
 	}
 	releases, err := t.Source.Releases()
 	if err != nil {
@@ -153,18 +153,6 @@ func (t *Tool) Resolve(c Config, followed string) (string, error) {
 		what += " in the line " + c.Pin
 	}
 	return "", fmt.Errorf("no release of %s (source: %s)", what, t.Source.Name)
-}
-
-// legacyNewest is the version rule of a tool without a Source (a features
-// library that does not use Source yet).
-func (t *Tool) legacyNewest(followed string) (string, error) {
-	if t.Follows != "" && t.NewestFor != nil && followed != "" {
-		return t.NewestFor(followed)
-	}
-	if t.Newest == nil {
-		return "", fmt.Errorf("tool %s has no version source", t.Name)
-	}
-	return t.Newest()
 }
 
 func containsString(list []string, s string) bool {
