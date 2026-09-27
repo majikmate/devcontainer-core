@@ -31,17 +31,20 @@ type workflowRun struct {
 }
 
 // Upstream starts the Release workflow of every upstream repository and waits
-// for it. Each upstream run does its normal check (and a chain build of its own
-// upstream images). A failed run stops the chain.
+// for it. The chain build is recursive: the upstream run gets upstream=true, so
+// it first runs the Release workflows of its own upstream images. Example:
+// classroom-web starts base, base starts core; core finishes first, then base,
+// then classroom-web does its own check. Every release.yml therefore declares
+// the dispatch inputs upstream, force and bump. A failed run stops the chain.
 func Upstream(o UpstreamOptions) error {
 	gh := newGitHub(o.Token)
 	for _, repo := range o.Repositories {
 		full := o.Owner + "/" + repo
 		start := time.Now().Add(-time.Minute) // margin for a clock difference
-		fmt.Printf("Starting the Release workflow of %s\n", full)
+		fmt.Printf("Starting the Release workflow of %s (with its own upstream images)\n", full)
 		if _, err := gh.do(http.MethodPost, "repos/"+full+"/actions/workflows/release.yml/dispatches", map[string]any{
 			"ref":    "main",
-			"inputs": map[string]string{"force": "false", "bump": "auto"},
+			"inputs": map[string]string{"upstream": "true", "force": "false", "bump": "auto"},
 		}, nil); err != nil {
 			return err
 		}

@@ -141,6 +141,22 @@ Every image repository has a `.github/workflows/release.yml` that calls the shar
 workflow of this repository:
 
 ```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      # Every release.yml declares these three inputs (the chain build passes them)
+      upstream:
+        description: First update the upstream images (chain build)
+        type: boolean
+        default: true
+      force:
+        type: boolean
+        default: false
+      bump:
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
 jobs:
   image:
     uses: majikmate/devcontainer-core/.github/workflows/devcontainer-image.yml@main
@@ -148,7 +164,11 @@ jobs:
       image-title: …
       image-description: …
       major-version: 2
-      upstream-repositories: devcontainer-core
+      # The image in the FROM line of .devcontainer/Dockerfile
+      upstream-repositories: devcontainer-base
+      update-upstream: ${{ github.event_name == 'workflow_dispatch' && inputs.upstream == true }}
+      force: ${{ inputs.force || false }}
+      bump: ${{ inputs.bump || 'auto' }}
     secrets:
       app-client-id: ${{ secrets.DEVCONTAINER_APP_CLIENT_ID }}
       app-private-key: ${{ secrets.DEVCONTAINER_APP_PRIVATE_KEY }}
@@ -187,9 +207,36 @@ without a release.
 The nightly checks run in chain order (UTC): core 23:17, base 01:17,
 classroom-exam-ts 01:27, dev 03:37, classroom-web 03:47, web-advanced 03:57.
 
-A manual run with `update-upstream` runs the Release workflows of the upstream
-images first and waits for them, so a single start builds the whole chain. It
-needs the GitHub App `majikmate-devcontainer` (organization secrets
+A manual run ("Run workflow" with the option `upstream`, on by default) builds
+the whole chain below the image. The chain build is recursive: each image starts
+the Release workflow of the image in its `FROM` line with `upstream=true` and
+waits for it. Example for devcontainer-classroom-web:
+
+```
+classroom-web (manual start)
+└─ starts base, waits
+   └─ base starts core, waits
+      └─ core: check, release if needed        (1st)
+   └─ base: check, release if core changed      (2nd)
+└─ classroom-web: check, release if base changed (3rd)
+```
+
+Every image in the chain runs the complete automatic check of
+[When a new version is released](#when-a-new-version-is-released), the same as
+in its nightly run:
+
+- inputs: configuration, digest of the base image, newest tool versions,
+- maximum age (`max-age-days`, Debian updates),
+- version step (`bump: auto`: minor for a new Go 1.x or Node.js/Deno major, else patch).
+
+So core releases when core needs it; base releases when core changed or base
+needs it for its own reasons; the started image does the same. The options
+`force` and `bump` of the manual start apply only to the started image; the
+upstream images always run with `force=false` and `bump=auto`.
+A failed run stops the chain. The nightly checks do not start the chain; they
+run one after the other by their schedule.
+
+The chain build needs the GitHub App `majikmate-devcontainer` (organization secrets
 `DEVCONTAINER_APP_CLIENT_ID` and `DEVCONTAINER_APP_PRIVATE_KEY`, passed as
 `app-client-id` and `app-private-key`) with the permission "Actions: write" on
 the upstream repositories.

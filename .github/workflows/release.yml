@@ -12,9 +12,17 @@ on:
   # their check two hours later (devcontainer-base, devcontainer-classroom-exam-ts).
   schedule:
     - cron: "17 23 * * *"
-  # Manual check ("Run workflow"): the same check as the nightly run, at once
+  # Manual check ("Run workflow"): the same check as the nightly run, at once.
+  # The chain build of the images that build on core starts it as well.
   workflow_dispatch:
     inputs:
+      # Every release.yml has the same inputs, because the chain build passes
+      # upstream=true to each upstream image. Core is the start of the chain,
+      # so it has no upstream images and this option has no effect here.
+      upstream:
+        description: First update the upstream images (core has none)
+        type: boolean
+        default: true
       force:
         description: Release a new version even if no input changed
         type: boolean
