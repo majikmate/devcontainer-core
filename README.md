@@ -208,7 +208,7 @@ jobs:
 | `prepare` | `devcon-release plan` | collects the inputs, decides whether to release, computes the version |
 | `build` | `devcon-release build` | builds with `docker buildx`, sets the labels, tests, pushes (amd64 and arm64) |
 | `publish` | `devcon-release publish` | creates the multi-architecture tags and the GitHub release |
-| `prune` | `devcon-release prune` | deletes the outdated versions of the image package |
+| `prune` | `devcon-release prune` | deletes the outdated versions of the image package and the old workflow runs |
 
 ### When a new version is released
 
@@ -250,13 +250,20 @@ versions of the image package on ghcr.io:
 
 Always kept: the newest release, every version with a moving tag (`2`, `2.0`,
 `latest`) and the parts of kept images. When the references of a kept image
-cannot be read, no untagged version is deleted. The input `prune` selects
-`apply` (default), `report` (list only) or `off`. Deleting cannot be undone.
+cannot be read, no untagged version is deleted.
+
+The same job deletes the completed **workflow runs** of the repository older
+than `prune-max-age-days` (permission `actions: write`). The input `prune`
+selects `apply` (default), `report` (list only) or `off`. Deleting cannot be
+undone.
 
 Every repository also has the manual workflow **Actions → Prune** (modes
-`report` and `apply`; scopes `outdated` and `all-but-newest`, which deletes
-every release except the newest). It calls the shared workflow
-[`devcontainer-prune.yml`](.github/workflows/devcontainer-prune.yml).
+`report` and `apply`) with two scopes: `outdated` (the rules above) and
+`all-but-newest`, which deletes every release except the newest and every
+workflow run except the newest run of each workflow (a clean-up). It calls
+the shared workflow
+[`devcontainer-prune.yml`](.github/workflows/devcontainer-prune.yml) and
+grants `packages: write` and `actions: write`.
 
 ### Schedule and chain build
 

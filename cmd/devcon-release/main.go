@@ -9,7 +9,8 @@
 //	devcon-release keep-alive  keep the scheduled workflow enabled
 //	devcon-release inspect     show the digest, labels and creation time of an image
 //	devcon-release module-release  create the next version tag of a Go module (no image)
-//	devcon-release prune       delete outdated versions of container packages (or whole packages)
+//	devcon-release prune       delete outdated versions of container packages (or whole packages) and old workflow runs
+//	devcon-release dispose-runs  delete all runs of named workflows in several repositories
 //
 // Defaults come from the environment of GitHub Actions (GITHUB_REPOSITORY,
 // GITHUB_SHA, GITHUB_TOKEN, ...).
@@ -34,7 +35,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release|prune [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release|prune|dispose-runs [flags]")
 		os.Exit(2)
 	}
 	var err error
@@ -55,6 +56,8 @@ func main() {
 		err = moduleRelease(os.Args[2:])
 	case "prune":
 		err = prune(os.Args[2:])
+	case "dispose-runs":
+		err = disposeRuns(os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -215,6 +218,8 @@ func prune(args []string) error {
 	fs.IntVar(&o.MaxAgeDays, "max-age-days", 0, "releases of the current major line older than this are outdated; the newest is kept (0: keep all)")
 	fs.BoolVar(&o.AllButNewest, "all-but-newest", false, "every release of the current major line except the newest is outdated")
 	fs.BoolVar(&o.DeletePackages, "delete-packages", false, "delete the whole packages")
+	fs.StringVar(&o.Repository, "repository", os.Getenv("GITHUB_REPOSITORY"), "repository (owner/name) whose old workflow runs are deleted")
+	fs.IntVar(&o.RunsMaxAgeDays, "runs-max-age-days", 0, "completed workflow runs of the repository older than this are deleted; with --all-but-newest all but the newest run of each workflow (0: keep all)")
 	mode := fs.String("mode", "report", "report (list only) or apply (delete)")
 	fs.Parse(args)
 	switch *mode {
@@ -234,6 +239,32 @@ func prune(args []string) error {
 	}
 	o.Token = os.Getenv("GITHUB_TOKEN")
 	return release.Prune(o)
+}
+
+// disposeRuns deletes all runs of named workflows in several repositories.
+func disposeRuns(args []string) error {
+	fs := flag.NewFlagSet("dispose-runs", flag.ExitOnError)
+	repositories := fs.String("repositories", "", "repositories (owner/name), separated by spaces")
+	workflows := fs.String("workflows", "", "workflow names, separated by commas")
+	mode := fs.String("mode", "report", "report (list only) or apply (delete)")
+	fs.Parse(args)
+	o := release.DisposeOptions{Repositories: strings.Fields(*repositories), Token: os.Getenv("GITHUB_TOKEN")}
+	for _, name := range strings.Split(*workflows, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			o.Workflows = append(o.Workflows, name)
+		}
+	}
+	switch *mode {
+	case "report":
+	case "apply":
+		o.Apply = true
+	default:
+		return fmt.Errorf("--mode must be report or apply, not %q", *mode)
+	}
+	if len(o.Repositories) == 0 || len(o.Workflows) == 0 {
+		return fmt.Errorf("dispose-runs: --repositories and --workflows are needed")
+	}
+	return release.DisposeRuns(o)
 }
 
 func inspect(args []string) error {

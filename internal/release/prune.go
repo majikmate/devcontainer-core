@@ -29,6 +29,11 @@ type PruneOptions struct {
 	// DeletePackages deletes the whole packages (for packages that are no
 	// longer published).
 	DeletePackages bool
+	// Repository (owner/name) whose completed workflow runs older than
+	// RunsMaxAgeDays are deleted (0: keep all runs); with AllButNewest, all
+	// completed runs except the newest run of each workflow.
+	Repository     string
+	RunsMaxAgeDays int
 	Apply          bool // delete; otherwise only report
 	Token          string
 }
@@ -54,6 +59,10 @@ type packageVersion struct {
 // A version that a kept image refers to (for example the image of one
 // architecture in a multi-architecture image) is never deleted, and neither
 // is the newest release or a version with a moving tag (2, 2.0, latest).
+//
+// With RunsMaxAgeDays, Prune also deletes the completed workflow runs of the
+// repository that are older, or with AllButNewest all completed runs except
+// the newest run of each workflow (see pruneRuns).
 func Prune(o PruneOptions) error {
 	gh := newGitHub(o.Token)
 	mode := "report only (nothing is deleted)"
@@ -98,6 +107,11 @@ func Prune(o PruneOptions) error {
 				strings.Join(d.version.Tags, " "), d.version.Created.Format("2006-01-02"), d.reason, result))
 		}
 		report = append(report, "")
+	}
+	if o.RunsMaxAgeDays > 0 && o.Repository != "" {
+		lines, runFailures := pruneRuns(gh, o.Repository, o.RunsMaxAgeDays, o.AllButNewest, rules.Now, o.Apply)
+		report = append(report, lines...)
+		failures = append(failures, runFailures...)
 	}
 	// The report goes to the run summary and to the job log
 	Summary(strings.Join(report, "\n"))

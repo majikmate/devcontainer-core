@@ -1,14 +1,19 @@
 # Shared workflow: list or delete the outdated versions of the image package
-# of the calling repository (devcon-release prune).
+# and the outdated workflow runs of the calling repository
+# (devcon-release prune).
 #
-# Used by the manual workflow prune.yml of every image repository. Outdated
-# versions (scope "outdated"): untagged versions that no kept image refers to,
-# the tags buildcache-* of the former release workflow, the versions of major
-# lines below major-version, and the releases of the current major line older
-# than max-age-days. Scope "all-but-newest" (a one-time clean-up) treats every
-# release of the current major line except the newest as outdated. The newest
-# release, the moving tags (2, 2.0, latest) and the parts of kept
-# multi-architecture images are never deleted.
+# Used by the manual workflow prune.yml of every image repository. The caller
+# grants the permissions packages: write and actions: write.
+#
+# Scope "outdated": untagged versions that no kept image refers to, the tags
+# buildcache-* of the former release workflow, the versions of major lines
+# below major-version, the releases of the current major line older than
+# max-age-days, and the completed workflow runs older than max-age-days.
+# Scope "all-but-newest" (a clean-up) treats every release of the current
+# major line except the newest, and every completed workflow run except the
+# newest run of each workflow, as outdated. The newest release, the moving
+# tags (2, 2.0, latest), the parts of kept multi-architecture images and the
+# runs that are not completed are never deleted.
 name: "Shared: Prune package versions"
 
 on:
@@ -19,7 +24,7 @@ on:
         type: string
         default: report
       scope:
-        description: outdated (the rules above) or all-but-newest (every release of the current major line except the newest)
+        description: outdated (the rules above) or all-but-newest (every release of the current major line and every workflow run except the newest)
         type: string
         default: outdated
       major-version:
@@ -27,7 +32,7 @@ on:
         type: number
         required: true
       max-age-days:
-        description: Releases of the current major line older than this number of days are outdated (0 keeps all)
+        description: Releases of the current major line and completed workflow runs older than this number of days are outdated (0 keeps all)
         type: number
         default: 90
 
@@ -42,6 +47,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       packages: write
+      actions: write
     steps:
       - name: Check out the tooling
         uses: actions/checkout@v7
@@ -57,12 +63,13 @@ jobs:
           go-version-file: .devcon/go.mod
           cache: false
 
-      - name: List or delete the outdated versions
+      - name: List or delete the outdated versions and workflow runs
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: >-
           go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
           --max-age-days "${{ inputs.max-age-days }}"
+          --runs-max-age-days "${{ inputs.max-age-days }}"
           --all-but-newest="${{ inputs.scope == 'all-but-newest' }}"
           --mode "${{ inputs.mode }}"
