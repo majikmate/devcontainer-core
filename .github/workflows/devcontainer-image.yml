@@ -1,0 +1,296 @@
+# Shared workflow: plan, build, test and release a Dev Container image.
+#
+# Used by the release.yml workflow of every image repository. All logic is in
+# the Go program devcon-release of this repository (cmd/devcon-release), which
+# every job runs with "go run". The workflow only connects the jobs.
+#
+#   upstream  manual chain build: run the Release workflows of the images that
+#             this image builds on first, and wait for them (GitHub App token)
+#   prepare   collect the inputs, decide, compute the version (devcon-release plan)
+#   build     build, label and test the image per architecture (devcon-release build)
+#   publish   multi-architecture tags and GitHub release (devcon-release publish)
+name: Dev Container image
+
+on:
+  workflow_call:
+    inputs:
+      image-title:
+        description: OCI title of the image
+        type: string
+        required: true
+      image-description:
+        description: OCI description of the image
+        type: string
+        required: true
+      major-version:
+        description: Major version of the image (increase it together with a breaking change)
+        type: number
+        required: true
+      config-paths:
+        description: Paths of the repository whose content is an input, separated by spaces
+        type: string
+        default: .devcontainer
+      absent-commands:
+        description: Commands that must not exist in the image, separated by spaces
+        type: string
+        default: ""
+      max-age-days:
+        description: Rebuild when the newest image is older than this number of days (operating system updates)
+        type: number
+        default: 7
+      force:
+        description: Release a new version even if no input changed
+        type: boolean
+        default: false
+      bump:
+        description: "Version step: auto, patch, minor or major"
+        type: string
+        default: auto
+      update-upstream:
+        description: Before the check, run the Release workflow of every upstream repository and wait for it
+        type: boolean
+        default: false
+      upstream-repositories:
+        description: Names of the repositories whose images this image builds on, separated by spaces
+        type: string
+        default: ""
+    secrets:
+      app-client-id:
+        description: Client ID of the GitHub App that starts the upstream workflows (only with update-upstream)
+        required: false
+      app-private-key:
+        description: Private key of that GitHub App (only with update-upstream)
+        required: false
+
+env:
+  CGO_ENABLED: "0"
+  # The tooling: this repository at the commit under test, otherwise its main branch
+  TOOLING_REF: ${{ github.repository == 'majikmate/devcontainer-core' && github.sha || 'main' }}
+
+jobs:
+  upstream:
+    name: Update upstream images
+    if: inputs.update-upstream && inputs.upstream-repositories != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions: {}
+    env:
+      APP_CLIENT_ID: ${{ secrets.app-client-id }}
+      APP_PRIVATE_KEY: ${{ secrets.app-private-key }}
+    steps:
+      - name: Check out the tooling
+        uses: actions/checkout@v7
+        with:
+          repository: majikmate/devcontainer-core
+          ref: ${{ env.TOOLING_REF }}
+          path: .devcon
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .devcon/go.mod
+          cache: false
+
+      - name: Create a token of the GitHub App
+        id: token
+        if: env.APP_CLIENT_ID != '' && env.APP_PRIVATE_KEY != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.app-client-id }}
+          private-key: ${{ secrets.app-private-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.upstream-repositories }}
+          permission-actions: write
+
+      - name: Run the Release workflows of the upstream images
+        env:
+          UPSTREAM_TOKEN: ${{ steps.token.outputs.token }}
+        run: >-
+          go -C .devcon run ./cmd/devcon-release upstream
+          --repositories "${{ inputs.upstream-repositories }}"
+          --actor "${{ steps.token.outputs.app-slug }}[bot]"
+
+  prepare:
+    name: Check inputs
+    needs: upstream
+    # Also runs when the upstream job is skipped (every run except a manual chain build)
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      tags: ${{ steps.plan.outputs.tags }}
+      reason: ${{ steps.plan.outputs.reason }}
+      created: ${{ steps.plan.outputs.created }}
+      inputs: ${{ steps.plan.outputs.inputs }}
+      fingerprint: ${{ steps.plan.outputs.fingerprint }}
+      build-args: ${{ steps.plan.outputs.build-args }}
+      tools: ${{ steps.plan.outputs.tools }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Check out the tooling
+        uses: actions/checkout@v7
+        with:
+          repository: majikmate/devcontainer-core
+          ref: ${{ env.TOOLING_REF }}
+          path: .devcon
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .devcon/go.mod
+          cache: false
+
+      # GitHub disables scheduled workflows after 60 days without repository activity
+      - name: Keep the scheduled check enabled
+        if: github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: go -C .devcon run ./cmd/devcon-release keep-alive --workflow "$GITHUB_WORKFLOW_REF"
+
+      - name: Plan
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: >-
+          go -C .devcon run ./cmd/devcon-release plan
+          --dir "$GITHUB_WORKSPACE"
+          --major "${{ inputs.major-version }}"
+          --config-paths "${{ inputs.config-paths }}"
+          --max-age-days "${{ inputs.max-age-days }}"
+          --force="${{ inputs.force }}"
+          --bump "${{ inputs.bump }}"
+
+  build:
+    name: Build ${{ matrix.arch }}
+    needs: prepare
+    if: ${{ !cancelled() && !failure() && needs.prepare.outputs.build == 'true' }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Check out the tooling
+        uses: actions/checkout@v7
+        with:
+          repository: majikmate/devcontainer-core
+          ref: ${{ env.TOOLING_REF }}
+          path: .devcon
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .devcon/go.mod
+          cache: false
+
+      - name: Log in to the GitHub Container Registry
+        if: needs.prepare.outputs.release == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Without build cache: every build installs the newest tools and packages
+      - name: Build and test the image
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BUILD_ARGS: ${{ needs.prepare.outputs.build-args }}
+          TOOLS: ${{ needs.prepare.outputs.tools }}
+          INPUTS: ${{ needs.prepare.outputs.inputs }}
+          IMAGE_TITLE: ${{ inputs.image-title }}
+          IMAGE_DESCRIPTION: ${{ inputs.image-description }}
+        run: >-
+          go -C .devcon run ./cmd/devcon-release build
+          --dir "$GITHUB_WORKSPACE"
+          --arch "${{ matrix.arch }}"
+          --version "${{ needs.prepare.outputs.version }}"
+          --push="${{ needs.prepare.outputs.release }}"
+          --title "$IMAGE_TITLE"
+          --description "$IMAGE_DESCRIPTION"
+          --created "${{ needs.prepare.outputs.created }}"
+          --inputs "$INPUTS"
+          --fingerprint "${{ needs.prepare.outputs.fingerprint }}"
+          --build-args "$BUILD_ARGS"
+          --tools "$TOOLS"
+          --absent-commands "${{ inputs.absent-commands }}"
+          --output "$GITHUB_WORKSPACE/test-output-${{ matrix.arch }}.txt"
+
+      - name: Keep the test output
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-output-${{ matrix.arch }}
+          path: test-output-${{ matrix.arch }}.txt
+          retention-days: 7
+
+  publish:
+    name: Publish ${{ needs.prepare.outputs.version }}
+    needs: [prepare, build]
+    if: ${{ !cancelled() && !failure() && needs.prepare.outputs.release == 'true' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Check out the tooling
+        uses: actions/checkout@v7
+        with:
+          repository: majikmate/devcontainer-core
+          ref: ${{ env.TOOLING_REF }}
+          path: .devcon
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .devcon/go.mod
+          cache: false
+
+      - name: Download the test output
+        uses: actions/download-artifact@v8
+        with:
+          pattern: test-output-*
+          path: test-output
+          merge-multiple: true
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the multi-architecture image and the GitHub release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REASON: ${{ needs.prepare.outputs.reason }}
+          INPUTS: ${{ needs.prepare.outputs.inputs }}
+        run: >-
+          go -C .devcon run ./cmd/devcon-release publish
+          --version "${{ needs.prepare.outputs.version }}"
+          --tags "${{ needs.prepare.outputs.tags }}"
+          --reason "$REASON"
+          --inputs "$INPUTS"
+          --outputs "$GITHUB_WORKSPACE/test-output"
