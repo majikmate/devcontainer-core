@@ -8,45 +8,38 @@ import (
 	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
-// securityUpdates returns the pending Debian security updates of an image: it
-// starts the image as root and runs "devcon os-updates --security" (layer
-// os). The command only simulates the upgrade; the image is not changed.
-func securityUpdates(image string) ([]debian.Update, error) {
+// pendingUpdates returns the pending Debian package updates of an image: it
+// starts the image as root and runs "devcon os-updates" (layer os). The
+// command only simulates the upgrade; the image is not changed. Debian stable
+// receives only fixes (security archive, stable-updates, point releases), so
+// every pending update counts.
+func pendingUpdates(image string) ([]debian.Update, error) {
 	out, err := sys.Output("docker", "run", "--rm", "--pull", "always", "--user", "root",
-		"--entrypoint", "devcon", image, "os-updates", "--security")
+		"--entrypoint", "devcon", image, "os-updates")
 	if err != nil {
 		return nil, err
 	}
-	var updates []debian.Update
-	for _, u := range debian.ReadUpdates(out) {
-		if u.Security {
-			updates = append(updates, u)
-		}
-	}
-	return updates, nil
+	return debian.ReadUpdates(out), nil
 }
 
-// ownSecurityUpdates decides which security updates are the job of this
-// image. An image that installs the layer os upgrades all packages in its
-// build, so all updates count. Any other image cannot upgrade the packages of
-// its base image; the updates that the base image has too are the job of the
-// base image (it rebuilds, and this image follows through the new base image
+// ownUpdates decides which Debian updates are the job of this image. An image
+// that installs the layer os upgrades all packages in its build, so all
+// updates count. Any other image cannot upgrade the packages of its base
+// image; the updates that the base image has too are the job of the base
+// image (it rebuilds, and this image follows through the new base image
 // digest). The result is nil when the check is not possible.
-func ownSecurityUpdates(image string, dockerfile *Dockerfile) []debian.Update {
-	updates, err := securityUpdates(image)
+func ownUpdates(image string, dockerfile *Dockerfile) []debian.Update {
+	updates, err := pendingUpdates(image)
 	if err != nil {
-		warning("Security check skipped: %v", err)
+		warning("Debian update check skipped: %v", err)
 		return nil
 	}
-	if contains(dockerfile.Layers, "os") || len(updates) == 0 {
+	if contains(dockerfile.Layers, "os") || len(updates) == 0 || dockerfile.FinalBase == "" {
 		return updates
 	}
-	if dockerfile.FinalBase == "" {
-		return updates
-	}
-	baseUpdates, err := securityUpdates(dockerfile.FinalBase)
+	baseUpdates, err := pendingUpdates(dockerfile.FinalBase)
 	if err != nil {
-		warning("Security check skipped (base image %s): %v", dockerfile.FinalBase, err)
+		warning("Debian update check skipped (base image %s): %v", dockerfile.FinalBase, err)
 		return nil
 	}
 	return subtractUpdates(updates, baseUpdates)
@@ -68,11 +61,34 @@ func subtractUpdates(updates, base []debian.Update) []debian.Update {
 	return result
 }
 
-// securityReason describes security updates for the release reason.
-func securityReason(updates []debian.Update) string {
-	var parts []string
+// maxListed limits the packages named in the release reason (a point release
+// can update hundreds of packages); security updates are always named.
+const maxListed = 10
+
+// updatesReason describes Debian updates for the release reason: the number of
+// packages, all security updates by name, and the first other packages.
+func updatesReason(updates []debian.Update) string {
+	var security, other []string
 	for _, u := range updates {
-		parts = append(parts, u.String())
+		if u.Security {
+			security = append(security, u.String())
+		} else {
+			other = append(other, u.String())
+		}
 	}
-	return fmt.Sprintf("Debian security updates: %s", strings.Join(parts, ", "))
+	reason := fmt.Sprintf("Debian updates: %d package(s)", len(updates))
+	if len(security) > 0 {
+		reason += "; security: " + strings.Join(security, ", ")
+	}
+	if len(other) > 0 {
+		listed := other
+		if len(listed) > maxListed {
+			listed = listed[:maxListed]
+		}
+		reason += "; other: " + strings.Join(listed, ", ")
+		if len(other) > maxListed {
+			reason += fmt.Sprintf(" and %d more", len(other)-maxListed)
+		}
+	}
+	return reason
 }
