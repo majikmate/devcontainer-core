@@ -13,11 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
 	_ "github.com/majikmate/devcontainer-core/internal/layers" // registers all layers
 	"github.com/majikmate/devcontainer-core/internal/registry"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/debian"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // Labels in which an image records the inputs of its build.
@@ -51,6 +52,7 @@ type Plan struct {
 	Created     string
 	BuildArgs   map[string]string // tool versions as build arguments
 	ToolVersion map[string]string // expected tool versions (name -> version)
+	Security    []debian.Update   // pending Debian security updates of this image
 }
 
 // Project describes the image of a repository (from its devcontainer.json).
@@ -152,11 +154,19 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 		}
 	}
 
+	// 4. Debian security updates of the newest image (not for pull requests
+	// and tags, which build anyway)
+	if o.Event != "pull_request" && !tagRef.MatchString(o.Ref) && !current.Created.IsZero() {
+		p.Security = ownSecurityUpdates(o.Image+":latest", dockerfile)
+	}
+
 	if err := p.decide(o, current, previous); err != nil {
 		return nil, err
 	}
 	return p, nil
 }
+
+var tagRef = regexp.MustCompile(`^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)$`)
 
 func (p *Plan) decide(o PlanOptions, current imageInfo, previous map[string]string) error {
 	p.Build = true
@@ -167,7 +177,6 @@ func (p *Plan) decide(o PlanOptions, current imageInfo, previous map[string]stri
 		ageDays = int(time.Since(current.Created).Hours() / 24)
 	}
 
-	tagRef := regexp.MustCompile(`^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)$`)
 	switch {
 	case o.Event == "pull_request":
 		p.Version = "pr-" + o.PRNumber
@@ -183,8 +192,12 @@ func (p *Plan) decide(o PlanOptions, current imageInfo, previous map[string]stri
 			p.Reason = "Manual release"
 		case len(previous) == 0:
 			p.Reason = "First release with recorded inputs"
+		case len(changes) > 0 && len(p.Security) > 0:
+			p.Reason = "Changed inputs: " + strings.Join(changes, " ") + "; " + securityReason(p.Security)
 		case len(changes) > 0:
 			p.Reason = "Changed inputs: " + strings.Join(changes, " ")
+		case len(p.Security) > 0:
+			p.Reason = securityReason(p.Security)
 		case ageDays >= o.MaxAgeDays:
 			p.Reason = fmt.Sprintf("Refresh: the current image is %d days old (operating system updates)", ageDays)
 		default:

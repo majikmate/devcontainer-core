@@ -8,10 +8,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
-	"github.com/majikmate/devcontainer-core/internal/versions"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
+	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
 func init() {
@@ -32,14 +32,14 @@ func init() {
 		},
 		Install: installDeno,
 		Test: func(t *layer.T) {
-			dir, cleanup, err := tempDir()
+			dir, cleanup, err := sys.TempDir()
 			if err == nil {
 				defer cleanup()
 				file := filepath.Join(dir, "check.ts")
 				_ = os.WriteFile(file, []byte("const n: number = 1 + 1;\nconsole.log(n);\n"), 0o644)
 				t.Check("run TypeScript with type check", t.Output("deno run", "deno", "run", "--check", file) == "2")
 			}
-			t.Version("deno", "v"+findVersion(t.Output("deno version", "deno", "--version"), `deno ([0-9.]+)`))
+			t.Version("deno", "v"+layer.FindVersion(t.Output("deno version", "deno", "--version"), `deno ([0-9.]+)`))
 		},
 	})
 }
@@ -54,7 +54,7 @@ func installDeno(e *layer.Env) error {
 	if target == "" {
 		return fmt.Errorf("deno: unsupported architecture %s", runtime.GOARCH)
 	}
-	dir, cleanup, err := tempDir()
+	dir, cleanup, err := sys.TempDir()
 	if err != nil {
 		return err
 	}

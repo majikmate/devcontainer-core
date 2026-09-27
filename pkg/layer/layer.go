@@ -5,9 +5,12 @@
 //   - its tools with their version sources (for the release tool),
 //   - its entry of the devcontainer.metadata label (VS Code extensions and
 //     settings, container options, lifecycle commands),
-//   - its installation and its test.
+//   - its installation and its test,
+//   - optionally a start step (run by "devcon start" when the container
+//     starts) and its own devcon commands.
 //
-// The layers themselves are in the package layers.
+// The Debian-bound layers are in devcontainer-core, the distribution
+// independent layers in devcontainer-features.
 package layer
 
 import (
@@ -15,7 +18,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
 )
 
 // Arg is a build argument of a layer.
@@ -45,6 +48,20 @@ type Layer struct {
 	Metadata devcontainer.Entry
 	Install  func(*Env) error
 	Test     func(*T)
+	// Start runs when the container starts ("devcon start": the ENTRYPOINT
+	// for docker run, postStartCommand for the Dev Containers extension and
+	// Codespaces). It runs as root or as the development user; a failure is
+	// reported but does not stop the container.
+	Start func() error
+	// Commands are devcon commands of this layer ("devcon <name> [args]").
+	Commands []Command
+}
+
+// Command is a devcon command that a layer provides.
+type Command struct {
+	Name    string
+	Summary string
+	Run     func(args []string) error
 }
 
 // Entry returns the label entry of the layer, or nil if it has none.

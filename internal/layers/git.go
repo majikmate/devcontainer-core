@@ -1,8 +1,8 @@
 package layers
 
 import (
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // System-wide git settings for simple workflows: pull rebases local commits,
@@ -31,7 +31,7 @@ func init() {
 				t.Check(s[0]+" = "+s[1], value == s[1])
 			}
 			v, _ := sys.Output("git", "--version")
-			t.Version("git", lastWord(v))
+			t.Version("git", layer.LastWord(v))
 		},
 	})
 }

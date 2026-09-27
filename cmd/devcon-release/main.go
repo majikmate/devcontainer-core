@@ -8,6 +8,7 @@
 //	devcon-release upstream    run the Release workflows of the upstream images (chain build)
 //	devcon-release keep-alive  keep the scheduled workflow enabled
 //	devcon-release inspect     show the digest, labels and creation time of an image
+//	devcon-release module-release  create the next version tag of a Go module (no image)
 //
 // Defaults come from the environment of GitHub Actions (GITHUB_REPOSITORY,
 // GITHUB_SHA, GITHUB_TOKEN, ...).
@@ -32,7 +33,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release [flags]")
 		os.Exit(2)
 	}
 	var err error
@@ -49,6 +50,8 @@ func main() {
 		err = keepAlive(os.Args[2:])
 	case "inspect":
 		err = inspect(os.Args[2:])
+	case "module-release":
+		err = moduleRelease(os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -185,6 +188,19 @@ func keepAlive(args []string) error {
 	workflow := fs.String("workflow", os.Getenv("GITHUB_WORKFLOW_REF"), "workflow reference (GITHUB_WORKFLOW_REF) or file name")
 	fs.Parse(args)
 	return release.KeepAlive(os.Getenv("GITHUB_REPOSITORY"), *workflow, os.Getenv("GITHUB_TOKEN"))
+}
+
+func moduleRelease(args []string) error {
+	fs := flag.NewFlagSet("module-release", flag.ExitOnError)
+	o := release.ModuleOptions{}
+	fs.StringVar(&o.Dir, "dir", env("GITHUB_WORKSPACE", "."), "checkout of the repository, with history")
+	fs.StringVar(&o.Repository, "repository", os.Getenv("GITHUB_REPOSITORY"), "owner/name")
+	fs.StringVar(&o.Revision, "revision", os.Getenv("GITHUB_SHA"), "commit to release")
+	fs.IntVar(&o.Major, "major", 1, "major version")
+	fs.StringVar(&o.Bump, "bump", "patch", "version step: patch, minor, major")
+	fs.Parse(args)
+	o.Token = os.Getenv("GITHUB_TOKEN")
+	return release.ModuleRelease(o)
 }
 
 func inspect(args []string) error {

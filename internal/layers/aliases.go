@@ -1,8 +1,8 @@
 package layers
 
 import (
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/shellrc"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/shellrc"
 )
 
 // Shell aliases of all users (bash and zsh).

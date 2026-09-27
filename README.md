@@ -72,9 +72,29 @@ The code of a layer is one file in [`internal/layers`](internal/layers). A layer
 | `Metadata` | VS Code settings and container options for the label `devcontainer.metadata` |
 | `Install`  | installation (runs as root during the build)                              |
 | `Test`     | test in the built image (runs as the development user)                    |
+| `Start`    | optional start step, run by `devcon start` when the container starts      |
+| `Commands` | optional `devcon` commands of the layer                                   |
 
 To add a layer: create a file in `internal/layers`, register the layer in its
 `init` function, regenerate `docs/layers.md`, and release core.
+
+### Framework packages
+
+The framework is public, so that layers in other repositories can use it
+(module `github.com/majikmate/devcontainer-core`):
+
+| Package | Content |
+| ------- | ------- |
+| [`pkg/layer`](pkg/layer) | layer definition, registry, test helpers |
+| [`pkg/sys`](pkg/sys) | commands, downloads with checksum, archives, users, files, groups |
+| [`pkg/debian`](pkg/debian) | Debian-specific: apt, pending package updates |
+| [`pkg/shellrc`](pkg/shellrc) | settings for bash and zsh |
+| [`pkg/state`](pkg/state) | installed layers and development user of an image |
+| [`pkg/devcontainer`](pkg/devcontainer) | entries of the label `devcontainer.metadata` |
+| [`pkg/versions`](pkg/versions) | newest versions from go.dev, Node.js, Deno, npm, GitHub releases |
+
+Distribution-independent layers use only `pkg/sys` for system work; only
+Debian-bound layers use `pkg/debian`.
 
 ### The label `devcontainer.metadata`
 
@@ -85,7 +105,9 @@ its entries in order. The release workflow creates the list:
 2. one entry per new layer, with the id `devcon/<layer>` (from `devcon metadata`),
 3. one entry for the image, with the id `devcon/image/<repository>` (from its `devcontainer.json`).
 
-Entries with the same id are not added twice.
+When an installed layer has a start step, `devcon metadata` also adds the
+entry `devcon/start` with `"postStartCommand": "devcon start"` (once for all
+layers). Entries with the same id are not added twice.
 
 ## devcon commands
 
@@ -95,10 +117,13 @@ Entries with the same id are not added twice.
 | `devcon layers [--markdown]` | anywhere               | lists the layers (`*` = installed in this image)         |
 | `devcon test [<layer>…]`   | built image              | tests the installed layers                               |
 | `devcon metadata`          | built image              | prints the label entries of the installed layers         |
-| `devcon start [<cmd>…]`    | container start          | starts the SSH server, loads the SSH keys, runs `<cmd>`  |
-| `devcon ssh-keys`          | container                | loads the SSH keys of the owner's GitHub account         |
-| `devcon sshd-start`        | container (root)         | starts the SSH server                                    |
-| `devcon update-os`         | container (root)         | upgrades the Debian packages                             |
+| `devcon start [<cmd>…]`    | container start          | runs the start steps of the installed layers, then `<cmd>` |
+| `devcon ssh-keys`          | container (layer sshd)   | loads the SSH keys of the owner's GitHub account         |
+| `devcon sshd-start`        | container, root (layer sshd) | starts the SSH server                                |
+| `devcon os-updates [--security]` | root (layer os)    | lists pending Debian updates without installing them (used by the security check) |
+
+The images do not update Debian packages when a container is created. The
+release workflow keeps the images current instead (see below).
 
 ## SSH access
 
@@ -192,8 +217,23 @@ with the current inputs:
 - `image/<ref>`: the digest of every base image in the Dockerfile,
 - `tool/<name>`: the newest version of every tool of the layers in the Dockerfile.
 
-A new version is released when an input changed, when the newest image is older
-than `max-age-days` (default 7 days, for Debian updates), or with `force`.
+A new version is released when:
+
+- an input changed;
+- **Debian security updates** are pending for the image (see below);
+- the newest image is older than `max-age-days` (default 7 days, for the other
+  Debian updates);
+- or with `force`.
+
+**Security check.** Every nightly and manual run starts the newest published
+image as root and runs `devcon os-updates --security`, which simulates an
+upgrade (`apt-get -s dist-upgrade`) and lists the packages with a newer
+version from the Debian security archive. Nothing is installed. The release
+reason and the release notes name the packages. An image that installs the
+layer `os` (core) counts all security updates, because its build upgrades all
+packages. Any other image counts only the updates that its `FROM` image does
+not have too: the other updates are the job of the base image, and the image
+follows through the new base image digest.
 
 Version step (`bump: auto`): minor when Go 1.x changes or the major version of
 Node.js or Deno changes, otherwise patch. The major version is set in

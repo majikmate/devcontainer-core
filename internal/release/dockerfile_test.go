@@ -34,4 +34,23 @@ FROM devcon AS again
 	if want := []string{"os", "go", "node"}; !reflect.DeepEqual(d.Layers, want) {
 		t.Errorf("layers = %v, want %v", d.Layers, want)
 	}
+	// The last FROM line starts from a build stage
+	if d.FinalBase != "" {
+		t.Errorf("final base = %q, want empty", d.FinalBase)
+	}
+}
+
+func TestReadDockerfileFinalBase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "Dockerfile")
+	content := "FROM golang:1.27-trixie AS devcon\nFROM ghcr.io/majikmate/devcontainer-core:1\nRUN devcon install go\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, err := ReadDockerfile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.FinalBase != "ghcr.io/majikmate/devcontainer-core:1" {
+		t.Errorf("final base = %q", d.FinalBase)
+	}
 }
