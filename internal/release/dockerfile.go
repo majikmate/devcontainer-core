@@ -16,6 +16,8 @@ type Dockerfile struct {
 	BaseImages []string
 	// Layers are the layers of "devcon install" lines, in order.
 	Layers []string
+	// Args are the names of the ARG lines (all stages).
+	Args []string
 	// FinalBase is the external image of the last FROM line ("" when the
 	// final stage starts from a build stage or from scratch).
 	FinalBase string
@@ -79,6 +81,13 @@ func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 		}
 		if len(args) >= 3 && strings.EqualFold(args[1], "AS") {
 			stages[args[2]] = true
+		}
+	case "ARG":
+		for _, arg := range fields[1:] {
+			name, _, _ := strings.Cut(arg, "=")
+			if !contains(d.Args, name) {
+				d.Args = append(d.Args, name)
+			}
 		}
 	case "RUN":
 		args := fields[1:]

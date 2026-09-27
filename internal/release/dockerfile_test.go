@@ -34,6 +34,9 @@ FROM devcon AS again
 	if want := []string{"os", "go", "node"}; !reflect.DeepEqual(d.Layers, want) {
 		t.Errorf("layers = %v, want %v", d.Layers, want)
 	}
+	if want := []string{"X"}; !reflect.DeepEqual(d.Args, want) {
+		t.Errorf("args = %v, want %v", d.Args, want)
+	}
 	// The last FROM line starts from a build stage
 	if d.FinalBase != "" {
 		t.Errorf("final base = %q, want empty", d.FinalBase)

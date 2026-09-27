@@ -16,7 +16,9 @@ package layer
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
 )
@@ -55,6 +57,8 @@ type Layer struct {
 	Start func() error
 	// Commands are devcon commands of this layer ("devcon <name> [args]").
 	Commands []Command
+	// Package is the Go package that registered the layer (set by Register).
+	Package string
 }
 
 // Command is a devcon command that a layer provides.
@@ -120,12 +124,27 @@ func (e *Env) Version(tool string) (string, error) {
 
 var registry = map[string]*Layer{}
 
-// Register adds a layer. The layers package calls it for every layer.
+// Register adds a layer. The layers packages call it for every layer. It
+// records the Go package of the caller as the source of the layer.
 func Register(l *Layer) {
 	if _, ok := registry[l.Name]; ok {
 		panic("layer registered twice: " + l.Name)
 	}
+	if pc, _, _, ok := runtime.Caller(1); ok && l.Package == "" {
+		l.Package = packageOf(runtime.FuncForPC(pc).Name())
+	}
 	registry[l.Name] = l
+}
+
+// packageOf returns the package path of a function name, for example
+// "github.com/majikmate/devcontainer-features" for
+// "github.com/majikmate/devcontainer-features.init.0".
+func packageOf(function string) string {
+	slash := strings.LastIndex(function, "/")
+	if dot := strings.Index(function[slash+1:], "."); dot >= 0 {
+		return function[:slash+1+dot]
+	}
+	return function
 }
 
 // Get returns a layer by name.

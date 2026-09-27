@@ -60,3 +60,13 @@ func TestInputsRoundTrip(t *testing.T) {
 		t.Errorf("changes = %v", ch)
 	}
 }
+
+func TestHighestVersion(t *testing.T) {
+	out := "a1\trefs/tags/v1.0.9\nb2\trefs/tags/v1.0.10\nc3\trefs/tags/feature_git_1.0.0\nd4\trefs/tags/v1.1.0-rc1\n"
+	if got := highestVersion(out); got != "1.0.10" {
+		t.Errorf("highestVersion = %q, want 1.0.10", got)
+	}
+	if got := highestVersion(""); got != "" {
+		t.Errorf("highestVersion of no tags = %q", got)
+	}
+}

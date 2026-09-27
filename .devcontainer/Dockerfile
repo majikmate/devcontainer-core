@@ -12,12 +12,18 @@
 # labels (OCI and devcontainer.metadata).
 
 # ── devcon: built from source, static (no C libraries) ───────────────────────
+# The framework and the Debian-bound layers come from this repository, the
+# distribution-independent layers from devcontainer-features.
 FROM golang:1.27-trixie AS devcon
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
 COPY cmd ./cmd
 COPY internal ./internal
 COPY pkg ./pkg
+# features: the distribution-independent layers of devcontainer-features, in
+# the version that the release workflow found (the newest without it)
+ARG FEATURES_VERSION=latest
+RUN go get github.com/majikmate/devcontainer-features@${FEATURES_VERSION}
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/devcon ./cmd/devcon
 
 # ── image ────────────────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/majikmate/devcontainer-core/internal/layers" // registers all layers
+	_ "github.com/majikmate/devcontainer-core/internal/all" // registers the layers and features
 	"github.com/majikmate/devcontainer-core/internal/registry"
 	"github.com/majikmate/devcontainer-core/pkg/debian"
 	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
@@ -154,7 +154,20 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 		}
 	}
 
-	// 4. Debian security updates of the newest image (not for pull requests
+	// 4. Features: the newest version of devcontainer-features, when the
+	// Dockerfile builds devcon with it (core)
+	if contains(dockerfile.Args, FeaturesArg) {
+		version, err := newestTag(FeaturesRepository)
+		if err != nil {
+			warning("Could not read the newest version of devcontainer-features: %v", err)
+		}
+		if err := add("tool/features", version); err != nil {
+			return nil, err
+		}
+		p.BuildArgs[FeaturesArg] = p.Inputs["tool/features"]
+	}
+
+	// 5. Debian security updates of the newest image (not for pull requests
 	// and tags, which build anyway)
 	if o.Event != "pull_request" && !tagRef.MatchString(o.Ref) && !current.Created.IsZero() {
 		p.Security = ownSecurityUpdates(o.Image+":latest", dockerfile)
@@ -260,12 +273,39 @@ func nextVersion(last string, major int, step string) string {
 	}
 }
 
+// The features library: the core Dockerfile builds devcon with the version
+// in the build argument FEATURES_VERSION.
+const (
+	FeaturesRepository = "https://github.com/majikmate/devcontainer-features"
+	FeaturesArg        = "FEATURES_VERSION"
+)
+
+// newestTag returns the highest version tag of a Git repository, for example
+// "v1.0.3".
+func newestTag(url string) (string, error) {
+	out, err := sys.Output("git", "ls-remote", "--tags", "--refs", url, "refs/tags/v*")
+	if err != nil {
+		return "", err
+	}
+	version := highestVersion(out)
+	if version == "" {
+		return "", fmt.Errorf("no version tag in %s", url)
+	}
+	return "v" + version, nil
+}
+
 // lastVersion returns the highest version tag vMAJOR.x.y of the repository.
 func lastVersion(dir string, major int) (string, error) {
 	out, err := sys.Output("git", "-C", dir, "ls-remote", "--tags", "--refs", "origin", fmt.Sprintf("refs/tags/v%d.*", major))
 	if err != nil {
 		return "", err
 	}
+	return highestVersion(out), nil
+}
+
+// highestVersion returns the highest version X.Y.Z of the tags vX.Y.Z in the
+// output of "git ls-remote --tags".
+func highestVersion(out string) string {
 	re := regexp.MustCompile(`refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)$`)
 	var best []int
 	bestText := ""
@@ -281,7 +321,7 @@ func lastVersion(dir string, major int) (string, error) {
 			bestText = m[1]
 		}
 	}
-	return bestText, nil
+	return bestText
 }
 
 // configInput returns the Git tree id of the configuration paths.
