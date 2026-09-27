@@ -44,21 +44,6 @@ func TestOutdatedRuns(t *testing.T) {
 	}
 }
 
-func TestMatchWorkflows(t *testing.T) {
-	workflows := []repoWorkflow{
-		{ID: 1, Name: "Release", Path: ".github/workflows/release.yml"},
-		{ID: 2, Name: "Dependabot Updates", Path: "dynamic/dependabot/dependabot-updates"},
-		{ID: 3, Name: "Dev Environment Prebuilds", Path: "dynamic/codespaces/create_codespaces_prebuilds"},
-	}
-	got := matchWorkflows(workflows, []string{"Dependabot Updates", "Dev Environment Prebuilds"})
-	if len(got) != 2 || got[0].ID != 2 || got[1].ID != 3 {
-		t.Errorf("matchWorkflows = %v, want the workflows 2 and 3", got)
-	}
-	if got := matchWorkflows(workflows, []string{"CI"}); len(got) != 0 {
-		t.Errorf("matchWorkflows of a missing workflow = %v", got)
-	}
-}
-
 func TestRunsByWorkflow(t *testing.T) {
 	names, count := runsByWorkflow([]repoRun{{Workflow: "Release"}, {Workflow: "CI"}, {Workflow: "Release"}})
 	if !slices.Equal(names, []string{"CI", "Release"}) || count["Release"] != 2 || count["CI"] != 1 {

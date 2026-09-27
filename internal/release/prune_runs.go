@@ -23,11 +23,10 @@ func runsCutoff(now time.Time, maxAgeDays int) time.Time {
 	return day.AddDate(0, 0, -maxAgeDays)
 }
 
-// listRuns reads the workflow runs of a list endpoint (the runs of a
-// repository or of one workflow), newest first. query filters the list (for
-// example created=<2026-01-01); GitHub returns at most 1000 runs for a
-// filtered list, and the next prune deletes the rest.
-func listRuns(gh *gitHub, endpoint, query string) ([]repoRun, error) {
+// listRuns reads the workflow runs of the repository, newest first. query
+// filters the list (for example created=<2026-01-01); GitHub returns at most
+// 1000 runs for a filtered list, and the next prune deletes the rest.
+func listRuns(gh *gitHub, repository, query string) ([]repoRun, error) {
 	var runs []repoRun
 	for page := 1; page <= 100; page++ {
 		var list struct {
@@ -39,7 +38,7 @@ func listRuns(gh *gitHub, endpoint, query string) ([]repoRun, error) {
 				CreatedAt  time.Time `json:"created_at"`
 			} `json:"workflow_runs"`
 		}
-		path := fmt.Sprintf("%s?per_page=100&page=%d", endpoint, page)
+		path := fmt.Sprintf("repos/%s/actions/runs?per_page=100&page=%d", repository, page)
 		if query != "" {
 			path += "&" + query
 		}
@@ -108,7 +107,7 @@ func pruneRuns(gh *gitHub, repository string, maxAgeDays int, allButNewest bool,
 		rule = "all completed runs except the newest run of each workflow"
 		query = ""
 	}
-	runs, err := listRuns(gh, "repos/"+repository+"/actions/runs", query)
+	runs, err := listRuns(gh, repository, query)
 	if err != nil {
 		return []string{fmt.Sprintf("**Workflow runs of %s**: failed (%v)", repository, err), ""},
 			[]string{fmt.Sprintf("workflow runs: %v", err)}
