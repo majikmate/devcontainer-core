@@ -50,6 +50,6 @@ jobs:
       image-description: Base of the Dev Container images (Debian 13, user dev with zsh, locales, git, Pure prompt, SSH server) with the layer tool devcon
       major-version: 1
       # The Go source of devcon is part of the image
-      config-paths: .devcontainer cmd internal pkg go.mod
+      config-paths: .devcontainer cmd internal pkg go.mod go.sum
       force: ${{ inputs.force || false }}
       bump: ${{ inputs.bump || 'auto' }}

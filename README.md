@@ -1,14 +1,21 @@
 # devcontainer-core
 
-The shared base of all Dev Container images. It has three parts:
+The shared base of all Dev Container images. It defines the distribution
+(Debian 13) and provides the infrastructure. It has four parts:
 
 1. **The image** `ghcr.io/majikmate/devcontainer-core`: Debian 13 (trixie) with the
    development user `dev`, zsh, locales, git settings, the Pure prompt and an SSH server.
-2. **The layer tool `devcon`**: a static Go program (built with `CGO_ENABLED=0`) in
-   the image. Every feature of every image is one layer, installed with
-   `RUN devcon install <layer>`. It also writes the VS Code settings of the
-   layers into the image label, so the image Dockerfiles do not need to handle them.
-3. **The release tooling**: the shared workflow
+2. **The framework and the layer tool `devcon`**: a static Go program (built with
+   `CGO_ENABLED=0`) in the image. Every feature of every image is one layer,
+   installed with `RUN devcon install <layer>`. It also writes the VS Code
+   settings of the layers into the image label, so the image Dockerfiles do not
+   need to handle them.
+3. **The Debian-bound layers** ([`pkg/layers`](pkg/layers)): os, user, locales,
+   sshd, build-tools, playwright-deps. The distribution-independent layers
+   (git, aliases, pure-prompt, go, node, deno, prettier, github-cli) are in
+   [devcontainer-features](https://github.com/majikmate/devcontainer-features);
+   core builds `devcon` with the newest version of that library.
+4. **The release tooling**: the shared workflow
    [`.github/workflows/devcontainer-image.yml`](.github/workflows/devcontainer-image.yml)
    and the Go program `devcon-release`. They decide when an image needs a new
    version, then build, test and release it.
@@ -61,7 +68,9 @@ All layers, their build arguments, tool versions and label entries are listed in
 go run ./cmd/devcon layers --markdown > docs/layers.md
 ```
 
-The code of a layer is one file in [`internal/layers`](internal/layers). A layer declares:
+The code of a layer is one file: in [`pkg/layers`](pkg/layers) for the
+Debian-bound layers, in [devcontainer-features](https://github.com/majikmate/devcontainer-features)
+for the distribution-independent layers. A layer declares:
 
 | Field      | Meaning                                                                   |
 | ---------- | ------------------------------------------------------------------------- |
@@ -75,8 +84,17 @@ The code of a layer is one file in [`internal/layers`](internal/layers). A layer
 | `Start`    | optional start step, run by `devcon start` when the container starts      |
 | `Commands` | optional `devcon` commands of the layer                                   |
 
-To add a layer: create a file in `internal/layers`, register the layer in its
-`init` function, regenerate `docs/layers.md`, and release core.
+To add a layer: a layer that needs the package manager or other parts of the
+distribution goes into `pkg/layers` of this repository (release core); any
+other layer goes into devcontainer-features (see its README). Register the
+layer in the `init` function of its file and regenerate `docs/layers.md`.
+
+**How features reach the images.** After a merge in devcontainer-features, its
+release workflow creates the next version tag. The nightly plan of core reads
+the newest tag (input `tool/features`) and passes it as build argument
+`FEATURES_VERSION`; the builder stage of the core Dockerfile builds `devcon`
+with exactly this version. A new features version therefore leads to a new
+core image, and the other images follow through the new core image digest.
 
 ### Framework packages
 
@@ -92,6 +110,7 @@ The framework is public, so that layers in other repositories can use it
 | [`pkg/state`](pkg/state) | installed layers and development user of an image |
 | [`pkg/devcontainer`](pkg/devcontainer) | entries of the label `devcontainer.metadata` |
 | [`pkg/versions`](pkg/versions) | newest versions from go.dev, Node.js, Deno, npm, GitHub releases |
+| [`pkg/layers`](pkg/layers) | the Debian-bound layers (importing it registers them) |
 
 Distribution-independent layers use only `pkg/sys` for system work; only
 Debian-bound layers use `pkg/debian`.

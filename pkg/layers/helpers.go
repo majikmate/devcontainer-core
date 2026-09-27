@@ -1,4 +1,6 @@
-// Package layers contains all layers. Each file registers one layer; see the
+// Package layers contains the Debian-bound layers of the images: os, user,
+// locales, sshd, build-tools and playwright-deps. The distribution-independent
+// layers are in devcontainer-features. Each file registers one layer; see the
 // package layer for what a layer declares.
 package layers
 
