@@ -52,7 +52,7 @@ type Plan struct {
 	Created     string
 	BuildArgs   map[string]string // tool versions as build arguments
 	ToolVersion map[string]string // expected tool versions (name -> version)
-	Security    []debian.Update   // pending Debian security updates of this image
+	Updates     []debian.Update   // pending Debian updates that are the job of this image
 }
 
 // Project describes the image of a repository (from its devcontainer.json).
@@ -167,10 +167,10 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 		p.BuildArgs[FeaturesArg] = p.Inputs["tool/features"]
 	}
 
-	// 5. Debian security updates of the newest image (not for pull requests
+	// 5. Pending Debian updates of the newest image (not for pull requests
 	// and tags, which build anyway)
 	if o.Event != "pull_request" && !tagRef.MatchString(o.Ref) && !current.Created.IsZero() {
-		p.Security = ownSecurityUpdates(o.Image+":latest", dockerfile)
+		p.Updates = ownUpdates(o.Image+":latest", dockerfile)
 	}
 
 	if err := p.decide(o, current, previous); err != nil {
@@ -205,14 +205,14 @@ func (p *Plan) decide(o PlanOptions, current imageInfo, previous map[string]stri
 			p.Reason = "Manual release"
 		case len(previous) == 0:
 			p.Reason = "First release with recorded inputs"
-		case len(changes) > 0 && len(p.Security) > 0:
-			p.Reason = "Changed inputs: " + strings.Join(changes, " ") + "; " + securityReason(p.Security)
+		case len(changes) > 0 && len(p.Updates) > 0:
+			p.Reason = "Changed inputs: " + strings.Join(changes, " ") + "; " + updatesReason(p.Updates)
 		case len(changes) > 0:
 			p.Reason = "Changed inputs: " + strings.Join(changes, " ")
-		case len(p.Security) > 0:
-			p.Reason = securityReason(p.Security)
+		case len(p.Updates) > 0:
+			p.Reason = updatesReason(p.Updates)
 		case ageDays >= o.MaxAgeDays:
-			p.Reason = fmt.Sprintf("Refresh: the current image is %d days old (operating system updates)", ageDays)
+			p.Reason = fmt.Sprintf("Refresh: the current image is %d days old (safety net)", ageDays)
 		default:
 			p.Build = false
 			p.Reason = fmt.Sprintf("No input changed and the current image is %d days old; nothing to do", ageDays)

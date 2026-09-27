@@ -139,7 +139,7 @@ layers). Entries with the same id are not added twice.
 | `devcon start [<cmd>…]`    | container start          | runs the start steps of the installed layers, then `<cmd>` |
 | `devcon ssh-keys`          | container (layer sshd)   | loads the SSH keys of the owner's GitHub account         |
 | `devcon sshd-start`        | container, root (layer sshd) | starts the SSH server                                |
-| `devcon os-updates [--security]` | root (layer os)    | lists pending Debian updates without installing them (used by the security check) |
+| `devcon os-updates [--security]` | root (layer os)    | lists pending Debian updates without installing them (used by the Debian update check) |
 
 The images do not update Debian packages when a container is created. The
 release workflow keeps the images current instead (see below).
@@ -239,20 +239,21 @@ with the current inputs:
 A new version is released when:
 
 - an input changed;
-- **Debian security updates** are pending for the image (see below);
-- the newest image is older than `max-age-days` (default 7 days, for the other
-  Debian updates);
+- **Debian updates** are pending for the image (see below);
+- the newest image is older than `max-age-days` (default 7 days; a safety net,
+  for example when the update check fails);
 - or with `force`.
 
-**Security check.** Every nightly and manual run starts the newest published
-image as root and runs `devcon os-updates --security`, which simulates an
+**Debian update check.** Every nightly and manual run starts the newest
+published image as root and runs `devcon os-updates`, which simulates an
 upgrade (`apt-get -s dist-upgrade`) and lists the packages with a newer
-version from the Debian security archive. Nothing is installed. The release
-reason and the release notes name the packages. An image that installs the
-layer `os` (core) counts all security updates, because its build upgrades all
-packages. Any other image counts only the updates that its `FROM` image does
-not have too: the other updates are the job of the base image, and the image
-follows through the new base image digest.
+version. Nothing is installed. Debian stable receives only fixes (security
+archive, stable-updates, point releases), so every pending update counts. The
+release reason names the number of packages, every security update, and the
+first other packages. An image that installs the layer `os` (core) counts all
+updates, because its build upgrades all packages. Any other image counts only
+the updates that its `FROM` image does not have too: the other updates are the
+job of the base image, and the image follows through the new base image digest.
 
 Version step (`bump: auto`): minor when Go 1.x changes or the major version of
 Node.js or Deno changes, otherwise patch. The major version is set in
