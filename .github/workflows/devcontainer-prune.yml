@@ -1,0 +1,55 @@
+# Shared workflow: list or delete the outdated versions of the image package
+# of the calling repository (devcon-release prune).
+#
+# Used by the manual workflow prune.yml of every image repository. Outdated
+# versions: untagged versions that no kept image refers to, the tags
+# buildcache-* of the former release workflow, and the versions of major lines
+# below major-version. The parts of kept multi-architecture images are never
+# deleted.
+name: Prune package versions
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: report (list them in the run summary and the log) or apply (delete them; this cannot be undone)
+        type: string
+        default: report
+      major-version:
+        description: Current major version of the image; the versions of lower major lines are outdated
+        type: number
+        required: true
+
+env:
+  CGO_ENABLED: "0"
+  # The tooling: this repository at the commit under test, otherwise its main branch
+  TOOLING_REF: ${{ github.repository == 'majikmate/devcontainer-core' && github.sha || 'main' }}
+
+jobs:
+  prune:
+    name: Outdated package versions
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - name: Check out the tooling
+        uses: actions/checkout@v7
+        with:
+          repository: majikmate/devcontainer-core
+          ref: ${{ env.TOOLING_REF }}
+          path: .devcon
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .devcon/go.mod
+          cache: false
+
+      - name: List or delete the outdated versions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          go -C .devcon run ./cmd/devcon-release prune
+          --major "${{ inputs.major-version }}"
+          --mode "${{ inputs.mode }}"

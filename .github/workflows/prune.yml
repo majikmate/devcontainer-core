@@ -1,0 +1,22 @@
+# Manual run: lists (report) or deletes (apply) the outdated versions of
+# ghcr.io/majikmate/devcontainer-core. The logic is in the shared workflow
+# devcontainer-prune.yml of this repository.
+name: Prune
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: report (list only) or apply (delete; this cannot be undone)
+        type: choice
+        options: [report, apply]
+        default: report
+
+jobs:
+  prune:
+    uses: ./.github/workflows/devcontainer-prune.yml
+    permissions:
+      packages: write
+    with:
+      mode: ${{ inputs.mode }}
+      major-version: 1

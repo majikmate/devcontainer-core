@@ -319,6 +319,23 @@ default) lists them in the run summary, `apply` deletes them, `off` skips the
 job. Deleting cannot be undone. When the references of a kept image cannot be
 read, no untagged version is deleted.
 
+Every image repository also has the manual workflow **Prune**
+(`.github/workflows/prune.yml`, **Actions → Prune → Run workflow**) with the
+modes `report` and `apply`. It calls the shared workflow
+[`devcontainer-prune.yml`](.github/workflows/devcontainer-prune.yml) with the
+major version of the image:
+
+```yaml
+jobs:
+  prune:
+    uses: majikmate/devcontainer-core/.github/workflows/devcontainer-prune.yml@main
+    permissions:
+      packages: write
+    with:
+      mode: ${{ inputs.mode }}
+      major-version: 2
+```
+
 ### Schedule and chain build
 
 The nightly checks run in chain order (UTC): core 23:17, base 01:17,
