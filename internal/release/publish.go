@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // PublishOptions are the settings of a release.

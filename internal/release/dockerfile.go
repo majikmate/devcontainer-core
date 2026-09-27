@@ -16,6 +16,9 @@ type Dockerfile struct {
 	BaseImages []string
 	// Layers are the layers of "devcon install" lines, in order.
 	Layers []string
+	// FinalBase is the external image of the last FROM line ("" when the
+	// final stage starts from a build stage or from scratch).
+	FinalBase string
 }
 
 // ReadDockerfile reads the base images and the installed layers.
@@ -65,11 +68,17 @@ func (d *Dockerfile) parse(line string, stages map[string]bool) error {
 		if strings.Contains(image, "$") {
 			return fmt.Errorf("FROM with a variable is not supported: %s", image)
 		}
+		external := !stages[image] && image != "scratch"
+		if external && !contains(d.BaseImages, image) {
+			d.BaseImages = append(d.BaseImages, image)
+		}
+		// The last FROM line wins: the image that the final stage starts from
+		d.FinalBase = ""
+		if external {
+			d.FinalBase = image
+		}
 		if len(args) >= 3 && strings.EqualFold(args[1], "AS") {
 			stages[args[2]] = true
-		}
-		if !stages[image] && image != "scratch" && !contains(d.BaseImages, image) {
-			d.BaseImages = append(d.BaseImages, image)
 		}
 	case "RUN":
 		args := fields[1:]

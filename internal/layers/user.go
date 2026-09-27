@@ -6,11 +6,11 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/shellrc"
-	"github.com/majikmate/devcontainer-core/internal/state"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/shellrc"
+	"github.com/majikmate/devcontainer-core/pkg/state"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 func init() {

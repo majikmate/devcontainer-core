@@ -5,11 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/shellrc"
-	"github.com/majikmate/devcontainer-core/internal/state"
-	"github.com/majikmate/devcontainer-core/internal/sys"
-	"github.com/majikmate/devcontainer-core/internal/versions"
+	"github.com/majikmate/devcontainer-core/pkg/debian"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/shellrc"
+	"github.com/majikmate/devcontainer-core/pkg/state"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
+	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
 // The nvm folder. The Dockerfile sets:
@@ -46,7 +47,7 @@ func init() {
 
 func installNode(e *layer.Env) error {
 	// Build tools for native npm modules (node-gyp)
-	if err := sys.AptInstall("make", "gcc", "g++", "python3-minimal"); err != nil {
+	if err := debian.AptInstall(buildToolsPackages...); err != nil {
 		return err
 	}
 	nvmVersion, err := e.Version("nvm")
@@ -82,7 +83,7 @@ func installNode(e *layer.Env) error {
 	if err != nil {
 		return err
 	}
-	group, err := groupID("nvm")
+	group, err := sys.GroupID("nvm")
 	if err != nil {
 		return err
 	}
@@ -115,5 +116,5 @@ npm cache clean --force`
 [ -n "$BASH_VERSION" ] && [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"`); err != nil {
 		return err
 	}
-	return sys.AptClean()
+	return debian.AptClean()
 }

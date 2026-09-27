@@ -3,8 +3,9 @@ package layers
 import (
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/debian"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 func init() {
@@ -16,7 +17,7 @@ func init() {
 			{Name: "PLAYWRIGHT_BROWSERS", Default: "chromium firefox webkit", Doc: "browsers, separated by spaces"},
 		},
 		Install: func(e *layer.Env) error {
-			if err := sys.AptUpdate(); err != nil {
+			if err := debian.AptUpdate(); err != nil {
 				return err
 			}
 			// Playwright's own list of Debian packages per browser
@@ -25,7 +26,7 @@ func init() {
 				return err
 			}
 			_ = sys.Run(nil, "npm", "cache", "clean", "--force")
-			return sys.AptClean()
+			return debian.AptClean()
 		},
 		Test: func(t *layer.T) {
 			libraries := t.Output("library list", "/sbin/ldconfig", "-p")

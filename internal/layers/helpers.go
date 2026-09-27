@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 )
@@ -19,15 +18,6 @@ func lastWord(s string) string {
 		return ""
 	}
 	return fields[len(fields)-1]
-}
-
-// tempDir creates a temporary folder; the returned function removes it.
-func tempDir() (string, func(), error) {
-	dir, err := os.MkdirTemp("", "devcon-")
-	if err != nil {
-		return "", nil, err
-	}
-	return dir, func() { os.RemoveAll(dir) }, nil
 }
 
 // getWithTimeout downloads a small file with a short timeout and no retries

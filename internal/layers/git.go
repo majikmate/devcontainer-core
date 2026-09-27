@@ -1,8 +1,8 @@
 package layers
 
 import (
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // System-wide git settings for simple workflows: pull rebases local commits,

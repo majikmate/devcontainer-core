@@ -8,10 +8,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
-	"github.com/majikmate/devcontainer-core/internal/versions"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
+	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
 func init() {
@@ -32,7 +32,7 @@ func init() {
 		},
 		Install: installDeno,
 		Test: func(t *layer.T) {
-			dir, cleanup, err := tempDir()
+			dir, cleanup, err := sys.TempDir()
 			if err == nil {
 				defer cleanup()
 				file := filepath.Join(dir, "check.ts")
@@ -54,7 +54,7 @@ func installDeno(e *layer.Env) error {
 	if target == "" {
 		return fmt.Errorf("deno: unsupported architecture %s", runtime.GOARCH)
 	}
-	dir, cleanup, err := tempDir()
+	dir, cleanup, err := sys.TempDir()
 	if err != nil {
 		return err
 	}

@@ -4,10 +4,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/shellrc"
-	"github.com/majikmate/devcontainer-core/internal/sys"
-	"github.com/majikmate/devcontainer-core/internal/versions"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/shellrc"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
+	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
 const pureDir = "/usr/local/share/zsh/pure"

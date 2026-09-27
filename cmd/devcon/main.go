@@ -10,12 +10,12 @@
 //	devcon test [<layer>...]    test the installed layers (default: all)
 //	devcon metadata             print the label entries of the installed layers
 //
-// Container (at start and at runtime):
+// Container:
 //
-//	devcon start [<command>...] start the SSH server, load the SSH keys, then run <command>
-//	devcon ssh-keys             load the SSH keys of the owner's GitHub account
-//	devcon sshd-start           start the SSH server (root)
-//	devcon update-os            upgrade the Debian packages (root)
+//	devcon start [<command>...] run the start steps of the installed layers, then <command>
+//
+// Layers add their own commands, for example "devcon ssh-keys" (layer sshd) or
+// "devcon os-updates" (layer os); "devcon help" lists them.
 package main
 
 import (
@@ -26,10 +26,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/layers"
-	"github.com/majikmate/devcontainer-core/internal/state"
+	_ "github.com/majikmate/devcontainer-core/internal/layers" // registers the layers
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/state"
 )
 
 func main() {
@@ -52,22 +52,14 @@ func main() {
 			listLayers()
 		}
 	case "start":
-		layers.Start()
+		start()
 		if len(args) > 0 {
 			err = execCommand(args)
 		}
-	case "ssh-keys":
-		err = layers.LoadSSHKeys()
-	case "sshd-start":
-		err = layers.SSHDStart()
-	case "update-os":
-		err = layers.UpdateOS()
 	case "help", "-h", "--help":
 		usage()
 	default:
-		fmt.Fprintf(os.Stderr, "devcon: unknown command %q\n", cmd)
-		usage()
-		os.Exit(2)
+		err = layerCommand(cmd, args)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "devcon:", err)
@@ -82,10 +74,14 @@ func usage() {
   layers [--markdown]   list all layers (--markdown: documentation of all layers)
   test [<layer>...]     test the installed layers
   metadata              print the devcontainer.metadata entries of the installed layers
-  start [<command>...]  start the SSH server and load the SSH keys, then run <command>
-  ssh-keys              load the SSH keys of the owner's GitHub account
-  sshd-start            start the SSH server (root)
-  update-os             upgrade the Debian packages (root)`)
+  start [<command>...]  run the start steps of the installed layers, then run <command>
+
+Commands of the layers:`)
+	for _, l := range layer.All() {
+		for _, c := range l.Commands {
+			fmt.Fprintf(os.Stderr, "  %-21s %s (layer %s)\n", c.Name, c.Summary, l.Name)
+		}
+	}
 }
 
 func install(names []string) error {
@@ -141,23 +137,70 @@ func test(names []string) error {
 	return nil
 }
 
-func metadata() error {
-	var entries []devcontainer.Entry
+// startEntry is the label entry that runs the start steps. The framework adds
+// it once, for all layers with a start step: the Dev Containers extension and
+// Codespaces do not use the ENTRYPOINT of the image.
+var startEntry = devcontainer.Entry{"id": "devcon/start", "postStartCommand": "devcon start"}
+
+func installedLayers() []*layer.Layer {
+	var result []*layer.Layer
 	for _, name := range state.Installed() {
-		l, err := layer.Get(name)
-		if err != nil {
-			return err
+		if l, err := layer.Get(name); err == nil {
+			result = append(result, l)
 		}
+	}
+	return result
+}
+
+func metadata() error {
+	entries := []devcontainer.Entry{}
+	hasStart := false
+	for _, l := range installedLayers() {
 		if e := l.Entry(); e != nil {
 			entries = append(entries, e)
 		}
+		hasStart = hasStart || l.Start != nil
 	}
-	if entries == nil {
-		entries = []devcontainer.Entry{}
+	if hasStart {
+		entries = append(entries, startEntry)
 	}
 	out := json.NewEncoder(os.Stdout)
 	out.SetIndent("", "  ")
 	return out.Encode(entries)
+}
+
+// start runs the start steps of the installed layers, in installation order.
+// A failure is reported and does not stop the container.
+func start() {
+	for _, l := range installedLayers() {
+		if l.Start == nil {
+			continue
+		}
+		if err := l.Start(); err != nil {
+			fmt.Printf("devcon start: layer %s: %v\n", l.Name, err)
+		}
+	}
+}
+
+// layerCommand runs a command of a layer. Commands of installed layers come
+// first; a command of a layer that is not installed is an error.
+func layerCommand(name string, args []string) error {
+	for _, l := range installedLayers() {
+		for _, c := range l.Commands {
+			if c.Name == name {
+				return c.Run(args)
+			}
+		}
+	}
+	for _, l := range layer.All() {
+		for _, c := range l.Commands {
+			if c.Name == name {
+				return fmt.Errorf("command %q belongs to layer %s, which is not installed", name, l.Name)
+			}
+		}
+	}
+	usage()
+	return fmt.Errorf("unknown command %q", name)
 }
 
 func listLayers() {
@@ -220,6 +263,18 @@ func markdownLayers() {
 			}
 			fmt.Println()
 		}
+		if l.Start != nil {
+			fmt.Println("Has a start step: `devcon start` runs it when the container starts.")
+			fmt.Println()
+		}
+		if len(l.Commands) > 0 {
+			fmt.Println("Commands:")
+			fmt.Println()
+			for _, c := range l.Commands {
+				fmt.Printf("- `devcon %s`: %s\n", c.Name, c.Summary)
+			}
+			fmt.Println()
+		}
 		if e := l.Entry(); e != nil {
 			data, _ := json.MarshalIndent(e, "", "  ")
 			fmt.Println("Entry in the image label `devcontainer.metadata`:")
@@ -229,4 +284,13 @@ func markdownLayers() {
 			fmt.Println("```")
 		}
 	}
+	fmt.Println()
+	fmt.Println("## Start step (framework)")
+	fmt.Println()
+	fmt.Println("When at least one installed layer has a start step, `devcon metadata` adds this entry once:")
+	fmt.Println()
+	data, _ := json.MarshalIndent(startEntry, "", "  ")
+	fmt.Println("```json")
+	fmt.Println(string(data))
+	fmt.Println("```")
 }

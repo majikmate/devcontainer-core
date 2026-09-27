@@ -17,6 +17,7 @@ WORKDIR /src
 COPY go.mod ./
 COPY cmd ./cmd
 COPY internal ./internal
+COPY pkg ./pkg
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/devcon ./cmd/devcon
 
 # ── image ────────────────────────────────────────────────────────────────────
@@ -51,9 +52,6 @@ RUN devcon install aliases
 # pure-prompt: Pure prompt for zsh
 ARG PURE_VERSION
 RUN devcon install pure-prompt
-
-# update-os: upgrade the Debian packages when a container is created
-RUN devcon install update-os
 
 # sshd: SSH server on port 2222, keys of the owner's GitHub account
 RUN devcon install sshd

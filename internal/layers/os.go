@@ -1,12 +1,15 @@
 package layers
 
 import (
+	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/debian"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // Basic tools of every image. The libraries at the end are needed by VS Code
@@ -31,21 +34,26 @@ func init() {
 	layer.Register(&layer.Layer{
 		Name:    "os",
 		Summary: "upgrades all Debian packages and installs the basic tools",
+		// Only at build time: the release workflow rebuilds the images when
+		// Debian publishes security updates (see "devcon os-updates").
 		Install: func(e *layer.Env) error {
-			if err := sys.AptUpdate(); err != nil {
+			if err := debian.AptUpdate(); err != nil {
 				return err
 			}
-			if err := sys.AptUpgrade(); err != nil {
+			if err := debian.AptUpgrade(); err != nil {
 				return err
 			}
 			packages := append([]string{}, osPackages...)
 			if icu, err := newestPackage("libicu", `^libicu[0-9]+$`); err == nil && icu != "" {
 				packages = append(packages, icu)
 			}
-			if err := sys.AptInstall(packages...); err != nil {
+			if err := debian.AptInstall(packages...); err != nil {
 				return err
 			}
-			return sys.AptClean()
+			return debian.AptClean()
+		},
+		Commands: []layer.Command{
+			{Name: "os-updates", Summary: "list the pending Debian package updates, --security: only security updates (root)", Run: osUpdates},
 		},
 		Test: func(t *layer.T) {
 			release, _ := sys.Output("sh", "-c", ". /etc/os-release && echo $PRETTY_NAME")
@@ -55,6 +63,29 @@ func init() {
 			}
 		},
 	})
+}
+
+// osUpdates prints the packages with a newer version in the package sources,
+// in the format of debian.FormatUpdates. It changes nothing in the image. The
+// release tool runs it in the newest published image to find security
+// updates.
+func osUpdates(args []string) error {
+	if !sys.IsRoot() {
+		return fmt.Errorf("os-updates needs root (sudo devcon os-updates)")
+	}
+	securityOnly := len(args) > 0 && args[0] == "--security"
+	updates, err := debian.PendingUpdates()
+	if err != nil {
+		return err
+	}
+	var selected []debian.Update
+	for _, u := range updates {
+		if u.Security || !securityOnly {
+			selected = append(selected, u)
+		}
+	}
+	fmt.Fprint(os.Stdout, debian.FormatUpdates(selected))
+	return nil
 }
 
 // newestPackage returns the package with the highest version number in its

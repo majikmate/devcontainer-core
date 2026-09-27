@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
-	"github.com/majikmate/devcontainer-core/internal/versions"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
+	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
 const (
@@ -34,7 +34,7 @@ func init() {
 		},
 		Install: installPrettier,
 		Test: func(t *layer.T) {
-			dir, cleanup, err := tempDir()
+			dir, cleanup, err := sys.TempDir()
 			if err == nil {
 				defer cleanup()
 				file := filepath.Join(dir, "index.html")

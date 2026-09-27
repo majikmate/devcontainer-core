@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // GoRelease returns the newest stable Go release, for example "1.27.1".

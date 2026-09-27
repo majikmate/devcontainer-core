@@ -10,10 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/state"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/debian"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/state"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // SSHPort is the port of the SSH server.
@@ -38,14 +39,16 @@ func init() {
 		Summary: "SSH server on port 2222 (keys only, no root) with the keys of the owner's GitHub account",
 		Needs:   []string{"user"},
 		Metadata: devcontainer.Entry{
-			// The Dev Containers extension and Codespaces do not use the
-			// ENTRYPOINT of the image, so the start runs as lifecycle command.
-			"postStartCommand": "devcon start",
 			// VS Code copies ~/.gitconfig (with github.user) when it connects
 			"postAttachCommand": "devcon ssh-keys",
 		},
+		Start: startSSH,
+		Commands: []layer.Command{
+			{Name: "ssh-keys", Summary: "load the SSH keys of the owner's GitHub account", Run: func([]string) error { return LoadSSHKeys() }},
+			{Name: "sshd-start", Summary: "start the SSH server (root)", Run: func([]string) error { return SSHDStart() }},
+		},
 		Install: func(e *layer.Env) error {
-			if err := sys.AptInstall("openssh-server"); err != nil {
+			if err := debian.AptInstall("openssh-server"); err != nil {
 				return err
 			}
 			if err := sys.WriteFile("/etc/ssh/sshd_config.d/00-devcon.conf", sshdConfig, 0o644); err != nil {
@@ -58,7 +61,7 @@ func init() {
 					return err
 				}
 			}
-			return sys.AptClean()
+			return debian.AptClean()
 		},
 		Test: testSSHD,
 	})
@@ -74,7 +77,7 @@ func testSSHD(t *layer.T) {
 	}
 
 	// Key login end to end, with a temporary key pair
-	dir, cleanup, err := tempDir()
+	dir, cleanup, err := sys.TempDir()
 	if err != nil {
 		t.Check("temporary folder", false)
 		return
@@ -202,11 +205,10 @@ func githubUser(u *sys.User) string {
 	return ""
 }
 
-// Start is the start of the container: it starts the SSH server and loads the
-// SSH keys. docker run: the ENTRYPOINT runs it as root. Dev Containers
+// startSSH is the start step of the layer: it starts the SSH server and loads
+// the SSH keys. docker run: the ENTRYPOINT runs it as root. Dev Containers
 // extension and Codespaces: postStartCommand runs it as the development user.
-// A failure never stops the container.
-func Start() {
+func startSSH() error {
 	var err error
 	if sys.IsRoot() {
 		err = SSHDStart()
@@ -214,11 +216,12 @@ func Start() {
 		err = sys.Run(nil, "sudo", "-n", "devcon", "sshd-start")
 	}
 	if err != nil {
-		fmt.Println("devcon start: the SSH server did not start:", err)
+		err = fmt.Errorf("the SSH server did not start: %w", err)
 	}
-	if err := LoadSSHKeys(); err != nil {
-		fmt.Println("devcon start: the SSH keys were not loaded:", err)
+	if keyErr := LoadSSHKeys(); keyErr != nil && err == nil {
+		err = fmt.Errorf("the SSH keys were not loaded: %w", keyErr)
 	}
+	return err
 }
 
 func containsLine(text, line string) bool {

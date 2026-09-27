@@ -1,7 +1,6 @@
 package layers
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,11 +9,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/layer"
-	"github.com/majikmate/devcontainer-core/internal/state"
-	"github.com/majikmate/devcontainer-core/internal/sys"
-	"github.com/majikmate/devcontainer-core/internal/versions"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/state"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
+	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
 // Paths of Go. The Dockerfile sets the same values with ENV:
@@ -70,7 +69,7 @@ func init() {
 }
 
 func installGo(e *layer.Env) error {
-	dir, cleanup, err := tempDir()
+	dir, cleanup, err := sys.TempDir()
 	if err != nil {
 		return err
 	}
@@ -139,7 +138,7 @@ func installGo(e *layer.Env) error {
 	if err != nil {
 		return err
 	}
-	group, err := groupID("golang")
+	group, err := sys.GroupID("golang")
 	if err != nil {
 		return err
 	}
@@ -194,7 +193,7 @@ func installGolangciLint(e *layer.Env, dir string) error {
 	if err != nil {
 		return err
 	}
-	if err := sys.VerifySHA256(archive, checksumFor(string(sums), name+".tar.gz")); err != nil {
+	if err := sys.VerifySHA256(archive, sys.ChecksumFor(string(sums), name+".tar.gz")); err != nil {
 		return err
 	}
 	if err := sys.ExtractTarGz(archive, dir); err != nil {
@@ -207,33 +206,6 @@ func installGolangciLint(e *layer.Env, dir string) error {
 	return sys.WriteFile(filepath.Join(goPath, "bin", "golangci-lint"), string(data), 0o755)
 }
 
-// checksumFor finds the checksum of a file in a "<sha256>  <file>" list.
-func checksumFor(list, file string) string {
-	scanner := bufio.NewScanner(strings.NewReader(list))
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) == 2 && fields[1] == file {
-			return fields[0]
-		}
-	}
-	return ""
-}
-
-// groupID reads the id of a group from /etc/group.
-func groupID(name string) (int, error) {
-	out, err := sys.Output("getent", "group", name)
-	if err != nil {
-		return 0, err
-	}
-	var id int
-	parts := strings.Split(out, ":")
-	if len(parts) < 3 {
-		return 0, fmt.Errorf("group %s: unexpected entry %q", name, out)
-	}
-	_, err = fmt.Sscanf(parts[2], "%d", &id)
-	return id, err
-}
-
 func testGo(t *layer.T) {
 	for _, cmd := range []string{"go", "gofmt", "gopls", "dlv", "staticcheck", "govulncheck", "golangci-lint"} {
 		t.HasCommand(cmd)
@@ -242,7 +214,7 @@ func testGo(t *layer.T) {
 	t.Check("GOPATH is "+goPath, gopath == goPath)
 	t.Command("user can write to "+goPath+"/bin", "test", "-w", goPath+"/bin")
 
-	dir, cleanup, err := tempDir()
+	dir, cleanup, err := sys.TempDir()
 	if err == nil {
 		defer cleanup()
 		_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"hello\") }\n"), 0o644)

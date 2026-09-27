@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/majikmate/devcontainer-core/internal/devcontainer"
-	"github.com/majikmate/devcontainer-core/internal/sys"
+	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
 // BuildOptions are the settings of an image build for one architecture.
