@@ -2,8 +2,9 @@
 # and the outdated workflow runs of the calling repository
 # (devcon-release prune).
 #
-# Used by the manual workflow prune.yml of every image repository. The caller
-# grants the permissions packages: write and actions: write.
+# Used by the manual workflow prune.yml of every image repository, and by
+# devcontainer-features with runs-only (it has no package, only workflow
+# runs). The caller grants the permissions packages: write and actions: write.
 #
 # Scope "outdated": untagged versions that no kept image refers to, the tags
 # buildcache-* of the former release workflow, the versions of major lines
@@ -29,9 +30,13 @@ on:
         type: string
         default: outdated
       major-version:
-        description: Current major version of the image; the versions of lower major lines are outdated
+        description: Current major version of the image; the versions of lower major lines are outdated (not used with runs-only)
         type: number
-        required: true
+        default: 0
+      runs-only:
+        description: Only the workflow runs, no package (for a repository without an image)
+        type: boolean
+        default: false
       max-age-days:
         description: Releases of the current major line and finished workflow runs (any result) older than this number of days are outdated (0 keeps all)
         type: number
@@ -73,4 +78,5 @@ jobs:
           --max-age-days "${{ inputs.max-age-days }}"
           --runs-max-age-days "${{ inputs.max-age-days }}"
           --all-but-newest="${{ inputs.scope == 'all-but-newest' }}"
+          --runs-only="${{ inputs.runs-only }}"
           --mode "${{ inputs.mode }}"

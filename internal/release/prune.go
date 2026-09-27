@@ -15,8 +15,10 @@ import (
 
 // PruneOptions are the settings of "devcon-release prune".
 type PruneOptions struct {
-	Org      string   // owner of the packages, for example majikmate
-	Packages []string // container packages, for example devcontainer-base
+	Org string // owner of the packages, for example majikmate
+	// Packages are the container packages, for example devcontainer-base;
+	// none for a repository without a package (only its workflow runs).
+	Packages []string
 	// Major is the current major version of the image: the versions of
 	// lower major lines are outdated (0: keep all major lines).
 	Major int
@@ -71,6 +73,9 @@ func Prune(o PruneOptions) error {
 	}
 	rules := pruneRules{Major: o.Major, MaxAgeDays: o.MaxAgeDays, AllButNewest: o.AllButNewest, Now: time.Now()}
 	report := []string{"### Outdated packages", "", "Mode: " + mode, "", "Rules: " + rules.String(), ""}
+	if len(o.Packages) == 0 {
+		report = []string{"### Outdated workflow runs", "", "Mode: " + mode, ""}
+	}
 	var failures []string
 	for _, name := range o.Packages {
 		path := fmt.Sprintf("orgs/%s/packages/container/%s", o.Org, url.PathEscape(name))
