@@ -1,6 +1,6 @@
 # Builds, tests and releases ghcr.io/majikmate/devcontainer-core.
 # The logic is in the shared workflow devcontainer-image.yml and in the Go
-# program devenv-release of this repository.
+# program devcon-release of this repository.
 name: Release
 
 on:
@@ -47,9 +47,9 @@ jobs:
       actions: write
     with:
       image-title: Dev Container Core
-      image-description: Base of the Dev Container images (Debian 13, user dev with zsh, locales, git, Pure prompt, SSH server) with the layer tool devenv
+      image-description: Base of the Dev Container images (Debian 13, user dev with zsh, locales, git, Pure prompt, SSH server) with the layer tool devcon
       major-version: 1
-      # The Go source of devenv is part of the image; README.md is shown on the package page
+      # The Go source of devcon is part of the image; README.md is shown on the package page
       config-paths: .devcontainer cmd internal pkg go.mod go.sum README.md
       force: ${{ inputs.force || false }}
       bump: ${{ inputs.bump || 'auto' }}

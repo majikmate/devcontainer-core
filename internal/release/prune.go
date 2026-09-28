@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// PruneOptions are the settings of "devenv-release prune".
+// PruneOptions are the settings of "devcon-release prune".
 type PruneOptions struct {
 	Org string // owner of the packages, for example majikmate
 	// Packages are the container packages, for example devcontainer-base;

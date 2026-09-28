@@ -1,6 +1,6 @@
 // Package all registers all layers of the images: the Debian-bound layers of
 // this repository (pkg/layers) and the distribution-independent features of
-// devcontainer-features. The program devenv and the release tool import it.
+// devcontainer-features. The program devcon and the release tool import it.
 package all
 
 import (

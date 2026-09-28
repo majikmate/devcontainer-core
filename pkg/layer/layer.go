@@ -7,8 +7,8 @@
 //   - its entry of the devcontainer.metadata label (VS Code extensions and
 //     settings, container options, lifecycle commands),
 //   - its installation and its test,
-//   - optionally a start step (run by "devenv start" when the container
-//     starts), its own devenv commands and a support check (Check).
+//   - optionally a start step (run by "devcon start" when the container
+//     starts), its own devcon commands and a support check (Check).
 //
 // The Debian-bound layers are in devcontainer-core, the distribution
 // independent layers in devcontainer-features.
@@ -35,7 +35,7 @@ type Arg struct {
 // determines (see Resolve). The release tool passes the version as build
 // argument Arg.
 type Tool struct {
-	Name string // name in the release notes and in customizations.devenv, for example "go"
+	Name string // name in the release notes and in customizations.devcon, for example "go"
 	Arg  string // build argument, for example "GO_VERSION"
 	// Source lists the releases of the tool.
 	Source *Source
@@ -57,27 +57,27 @@ type Layer struct {
 	Args    []Arg
 	Tools   []Tool
 	// Metadata is the entry of this layer in the devcontainer.metadata label.
-	// The id is set automatically ("devenv/<name>").
+	// The id is set automatically ("devcon/<name>").
 	Metadata devcontainer.Entry
 	Install  func(*Env) error
 	Test     func(*T)
-	// Start runs when the container starts ("devenv start": the ENTRYPOINT
+	// Start runs when the container starts ("devcon start": the ENTRYPOINT
 	// for docker run, postStartCommand for the Dev Containers extension and
 	// Codespaces). It runs as root or as the development user; a failure is
 	// reported but does not stop the container.
 	Start func() error
-	// Commands are devenv commands of this layer ("devenv <name> [args]").
+	// Commands are devcon commands of this layer ("devcon <name> [args]").
 	Commands []Command
 	// Check verifies that what the layer installed is still supported, for
 	// example the Debian release (layer os). It returns an *EndOfLifeError
-	// at the end of life. "devenv install" runs it after the installation;
-	// the release tool runs it in the newest image ("devenv check").
+	// at the end of life. "devcon install" runs it after the installation;
+	// the release tool runs it in the newest image ("devcon check").
 	Check func() error
 	// Package is the Go package that registered the layer (set by Register).
 	Package string
 }
 
-// Command is a devenv command that a layer provides.
+// Command is a devcon command that a layer provides.
 type Command struct {
 	Name    string
 	Summary string
@@ -89,7 +89,7 @@ func (l *Layer) Entry() devcontainer.Entry {
 	if len(l.Metadata) == 0 {
 		return nil
 	}
-	entry := devcontainer.Entry{"id": "devenv/" + l.Name}
+	entry := devcontainer.Entry{"id": "devcon/" + l.Name}
 	for k, v := range l.Metadata {
 		entry[k] = v
 	}
@@ -188,7 +188,7 @@ func packageOf(function string) string {
 func Get(name string) (*Layer, error) {
 	l, ok := registry[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown layer %q (see: devenv layers)", name)
+		return nil, fmt.Errorf("unknown layer %q (see: devcon layers)", name)
 	}
 	return l, nil
 }

@@ -1,15 +1,15 @@
-// Command devenv-release is the release tool of the Dev Container images. The
+// Command devcon-release is the release tool of the Dev Container images. The
 // shared workflow .github/workflows/devcontainer-image.yml runs it with
 // "go run" (CGO_ENABLED=0):
 //
-//	devenv-release plan        collect the inputs, decide, compute the version
-//	devenv-release build       build, label, test and push one architecture
-//	devenv-release publish     create the multi-architecture image and the release
-//	devenv-release upstream    run the Release workflows of the upstream images (chain build)
-//	devenv-release keep-alive  keep the scheduled workflow enabled
-//	devenv-release inspect     show the digest, labels and creation time of an image
-//	devenv-release module-release  create the next version tag of a Go module (no image)
-//	devenv-release prune       delete outdated versions of container packages (or whole packages) and old workflow runs
+//	devcon-release plan        collect the inputs, decide, compute the version
+//	devcon-release build       build, label, test and push one architecture
+//	devcon-release publish     create the multi-architecture image and the release
+//	devcon-release upstream    run the Release workflows of the upstream images (chain build)
+//	devcon-release keep-alive  keep the scheduled workflow enabled
+//	devcon-release inspect     show the digest, labels and creation time of an image
+//	devcon-release module-release  create the next version tag of a Go module (no image)
+//	devcon-release prune       delete outdated versions of container packages (or whole packages) and old workflow runs
 //
 // Defaults come from the environment of GitHub Actions (GITHUB_REPOSITORY,
 // GITHUB_SHA, GITHUB_TOKEN, ...).
@@ -34,7 +34,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: devenv-release plan|build|publish|upstream|keep-alive|inspect|module-release|prune [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release|prune [flags]")
 		os.Exit(2)
 	}
 	var err error
@@ -247,7 +247,7 @@ func prune(args []string) error {
 
 func inspect(args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("usage: devenv-release inspect <image>")
+		return fmt.Errorf("usage: devcon-release inspect <image>")
 	}
 	client := registry.NewClient()
 	manifest, mediaType, err := client.Manifest(args[0])
