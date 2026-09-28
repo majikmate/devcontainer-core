@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Command devcon installs, tests and starts the layers of a Dev Container image.
 //
 // Build (in a Dockerfile, as root):
@@ -31,6 +35,7 @@ import (
 	_ "github.com/majikmate/devcontainer-core/internal/all" // registers the layers and features
 	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
 	"github.com/majikmate/devcontainer-core/pkg/layer"
+	"github.com/majikmate/devcontainer-core/pkg/notices"
 	"github.com/majikmate/devcontainer-core/pkg/state"
 )
 
@@ -388,4 +393,10 @@ func markdownLayers() {
 	fmt.Println("```json")
 	fmt.Println(string(data))
 	fmt.Println("```")
+	// The license footer of the generated document (docs/layers.md): it keeps
+	// the notice of its sources, the layer code
+	fmt.Println()
+	fmt.Println("---")
+	fmt.Println()
+	fmt.Println(notices.Footer("../LICENSE"))
 }

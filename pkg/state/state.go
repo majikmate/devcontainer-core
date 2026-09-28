@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Package state stores what devcon has installed in an image: the list of
 // installed layers and the name of the development user.
 package state

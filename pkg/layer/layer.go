@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Package layer defines what a layer is. A layer installs one part of an
 // image (for example Go or the SSH server). Each layer declares:
 //

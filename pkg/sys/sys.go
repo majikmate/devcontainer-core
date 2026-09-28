@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Package sys contains the system operations that the layers use: running
 // programs, Debian packages, downloads with checksums, archives, files and
 // users. All functions return errors instead of stopping the program.

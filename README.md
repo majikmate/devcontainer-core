@@ -353,14 +353,22 @@ GitHub App `majikmate-devcontainer` (organization secrets
 
 ## Development
 
+The license notices follow the licensing rules of the project: the root
+[`LICENSE`](LICENSE), a three-line `SPDX-License-Identifier: MIT` header in
+every authored file that can carry comments, and a license footer at the end
+of every Markdown document. `devcon-release notices` checks them; the shared
+workflow runs it in every image repository, and `go test` checks this
+repository.
+
 ```sh
 CGO_ENABLED=0 go vet ./...
 CGO_ENABLED=0 go test ./...
+go run ./cmd/devcon-release notices --dir .
 docker buildx build --load -t devcontainer-core:dev -f .devcontainer/Dockerfile .
 docker run --rm --user dev --entrypoint devcon devcontainer-core:dev test
 go run ./cmd/devcon-release inspect ghcr.io/majikmate/devcontainer-core:1
 ```
 
-## License
+---
 
-MIT
+© 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](LICENSE).

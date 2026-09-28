@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# © 2026 Hannes Stauss (scalarion@nimblescape.com)
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
 # Weekly updates of the GitHub actions, the Docker base images and the Go version.
 # The tools in the image (Go, Node.js, Deno, ...) are not updated here: the
 # release workflow checks their newest versions every night.

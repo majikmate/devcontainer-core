@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Package layers contains the Debian-bound layers of the images: os, user,
 // locales, sshd, build-tools and playwright-deps. The distribution-independent
 // layers are in devcontainer-features. Each file registers one layer; see the
