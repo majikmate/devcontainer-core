@@ -101,7 +101,7 @@ func (t *Tool) CheckSupport(c Config) error {
 	err := t.Source.Support(c.Pin)
 	if eol := (*EndOfLifeError)(nil); errors.As(err, &eol) {
 		eol.What = fmt.Sprintf("%s %s (pinned line)", t.Name, c.Pin)
-		eol.Change = "the pinned line of " + t.Name + " (Tool.Version of its layer, or customizations.devcon." + t.Name + ".pin in the devcontainer.json of the image)"
+		eol.Change = "the pinned line of " + t.Name + " (the pin constant at the top of the file of its layer, or customizations.devcon." + t.Name + ".pin in the devcontainer.json of the image)"
 		return eol
 	}
 	if err != nil {
