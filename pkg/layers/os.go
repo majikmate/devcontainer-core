@@ -1,3 +1,7 @@
+// The layer os: the Debian release of the images (tool debian), the upgrade
+// of all Debian packages and the basic tools, and the support check of the
+// installed Debian release.
+
 package layers
 
 import (
@@ -11,6 +15,18 @@ import (
 	"github.com/majikmate/devcontainer-core/pkg/debian"
 	"github.com/majikmate/devcontainer-core/pkg/layer"
 	"github.com/majikmate/devcontainer-core/pkg/sys"
+)
+
+// Release choice of the tool debian: the pinned Debian release (series) and
+// the release channel (see layer.Config). Pinned to trixie (Debian 13): a new
+// Debian release is a decision, not an automatic change; the end of the
+// regular security support stops the release. The Debian release list has
+// no channels, so the channel is empty. The devcontainer.json of an image
+// can override both
+// ("customizations": {"devcon": {"debian": {"pin": "...", "channel": "..."}}}).
+const (
+	debianPin     = "trixie"
+	debianChannel = ""
 )
 
 // Basic tools of every image. The libraries at the end are needed by VS Code
@@ -40,11 +56,8 @@ func init() {
 		// The Debian release: the release plan passes it as DEBIAN_SERIES,
 		// and the FROM line of the Dockerfile uses it
 		// (FROM debian:${DEBIAN_SERIES}).
-		// Pinned to trixie (Debian 13): a new Debian release is a decision,
-		// not an automatic change; the end of the regular security support
-		// stops the release.
 		Tools: []layer.Tool{
-			{Name: "debian", Arg: "DEBIAN_SERIES", Source: debianSource, Version: layer.Config{Pin: "trixie"}},
+			{Name: "debian", Arg: "DEBIAN_SERIES", Source: debianSource, Version: layer.Config{Pin: debianPin, Channel: debianChannel}},
 		},
 		// Only at build time: the release workflow rebuilds the images when
 		// Debian publishes security updates (see "devcon os-updates").
@@ -135,7 +148,7 @@ func checkDebianRelease(releases []debian.Release, series string, today time.Tim
 }
 
 // debianChange says where the Debian release is configured.
-const debianChange = "the pinned Debian release (Tool.Version of the tool debian in the layer os of devcontainer-core, or customizations.devcon.debian.pin in the devcontainer.json of the image)"
+const debianChange = "the pinned Debian release (the constant debianPin at the top of pkg/layers/os.go of devcontainer-core, or customizations.devcon.debian.pin in the devcontainer.json of the image)"
 
 // debianSource lists the released Debian releases, newest first. A release
 // line is a release series (for example "trixie" for Debian 13).

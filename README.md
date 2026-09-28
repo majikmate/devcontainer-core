@@ -99,8 +99,11 @@ tool:
    the npm registry, the GitHub releases, the Go module proxy; general sources
    in [`pkg/versions`](pkg/versions)).
 2. The **feature decides** the release line (`pin`) and the release channel
-   (`channel`) in `Tool.Version`. Empty means the newest release of the
-   default channel.
+   (`channel`) in `Tool.Version`. The values are constants `<tool>Pin` and
+   `<tool>Channel` at the top of the layer file, directly after the imports
+   (for example `debianPin` in [`pkg/layers/os.go`](pkg/layers/os.go),
+   `denoPin` in `deno/deno.go` of devcontainer-features). Empty means the
+   newest release of the default channel.
 3. The `devcontainer.json` of the image that installs the layer **can
    override** it with the same keys (no image uses an override today):
 
@@ -122,13 +125,13 @@ tool:
 The release notes show the result as inputs `tool/<name>`, `pin/<name>` and
 `channel/<name>`.
 
-| Tool | Layer | Pin | Channel |
-| ---- | ----- | --- | ------- |
-| `debian` | `os` (core) | `trixie` (Debian 13) | — |
-| `go` | `go` (features) | `1.27` | — |
-| `node` | `node` (features) | `24` | `lts` (or `current`) |
-| `deno` | `deno` (features) | `2` | `lts` (or `stable`) |
-| all other tools | | none: the newest release | — |
+| Tool | Layer | Constants in | Pin | Channel |
+| ---- | ----- | ------------ | --- | ------- |
+| `debian` | `os` (core) | [`pkg/layers/os.go`](pkg/layers/os.go) | `trixie` (Debian 13) | — |
+| `go` | `go` (features) | [`golang/golang.go`](https://github.com/majikmate/devcontainer-features/blob/main/golang/golang.go) | `1.27` | — |
+| `node` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go) | `24` | `lts` (or `current`) |
+| `deno` | `deno` (features) | [`deno/deno.go`](https://github.com/majikmate/devcontainer-features/blob/main/deno/deno.go) | `2` | `lts` (or `stable`) |
+| all other tools | | the file of their layer | none: the newest release | — |
 
 **End of life.** A source can have a support rule (Go, Node.js, Deno,
 Debian). At the end of life of a pinned line, the release check and the build
@@ -137,8 +140,9 @@ the source and the supported lines:
 
 ```text
 go 1.27 (pinned line) has reached its end of life (Go 1.29.0 was released; Go supports the two newest major releases).
-Source: https://go.dev/doc/devel/release#policy. Change the pinned line of go (Tool.Version of its layer, or
-customizations.devcon.go.pin in the devcontainer.json of the image) to a supported version (supported: 1.28, 1.29).
+Source: https://go.dev/doc/devel/release#policy. Change the pinned line of go (the pin constant at the top of the file
+of its layer, or customizations.devcon.go.pin in the devcontainer.json of the image) to a supported version
+(supported: 1.28, 1.29).
 ```
 
 **Debian.** The tool `debian` of the layer `os` chooses the Debian release

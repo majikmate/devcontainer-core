@@ -30,7 +30,7 @@ Shell aliases: ls, ll, grep, vs.
 
 Dockerfile: `RUN devcon install aliases`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/aliases`)
 
 Needs the layers: user.
 
@@ -52,7 +52,7 @@ Deno, the JavaScript/TypeScript runtime and language server.
 
 Dockerfile: `RUN devcon install deno`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/deno`)
 
 Needs the layers: user.
 
@@ -98,7 +98,7 @@ System-wide git settings (rebase on pull, auto stash).
 
 Dockerfile: `RUN devcon install git`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/git`)
 
 Needs the layers: os.
 
@@ -109,7 +109,7 @@ GitHub CLI (gh) from the GitHub release archive.
 
 Dockerfile: `RUN devcon install github-cli`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/githubcli`)
 
 Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devcon` of the devcontainer.json, and passes it as build argument):
 
@@ -122,7 +122,7 @@ Go, gopls, dlv, staticcheck, govulncheck and golangci-lint.
 
 Dockerfile: `RUN devcon install go`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/golang`)
 
 Needs the layers: user.
 
@@ -194,7 +194,7 @@ Nvm, Node.js (the newest LTS release of the line 24) and npm.
 
 Dockerfile: `RUN devcon install node`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/node`)
 
 Needs the layers: user, build-tools.
 
@@ -258,7 +258,7 @@ Prettier with the Tailwind CSS plugin and a global configuration.
 
 Dockerfile: `RUN devcon install prettier`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/prettier`)
 
 Needs the layers: node.
 
@@ -291,7 +291,7 @@ Pure prompt for zsh (https://github.com/sindresorhus/pure).
 
 Dockerfile: `RUN devcon install pure-prompt`
 
-Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features`)
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/pureprompt`)
 
 Needs the layers: user.
 

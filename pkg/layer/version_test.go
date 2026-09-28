@@ -90,7 +90,7 @@ func TestCheckSupport(t *testing.T) {
 	if !errors.As(err, &eol) {
 		t.Fatalf("line 1: err = %v, want an EndOfLifeError", err)
 	}
-	want := "rt 1 (pinned line) has reached its end of life (on 2026-01-31). Source: https://example.com/schedule. Change the pinned line of rt (Tool.Version of its layer, or customizations.devcon.rt.pin in the devcontainer.json of the image) to a supported version (supported: 2, 3)."
+	want := "rt 1 (pinned line) has reached its end of life (on 2026-01-31). Source: https://example.com/schedule. Change the pinned line of rt (the pin constant at the top of the file of its layer, or customizations.devcon.rt.pin in the devcontainer.json of the image) to a supported version (supported: 2, 3)."
 	if err.Error() != want {
 		t.Errorf("message:\n got %s\nwant %s", err, want)
 	}
