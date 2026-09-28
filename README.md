@@ -31,12 +31,12 @@ Python scripts.
                                                Nightly Content
 devcontainer-features                                  Go library of layers, compiled into devcon
   ▼
-devcontainer-core:1                            23:17   Debian 13, devcon, user dev, zsh, SSH server
-├── devcontainer-base:2                        01:17   + go, build-tools, node, deno, prettier, vscode-server
-│   ├── devcontainer-dev:2                     03:37   + github-cli
-│   ├── devcontainer-classroom-web:2           03:47   classroom settings, AI off
-│   └── devcontainer-classroom-web-advanced:2  03:57   + playwright-deps, AI on
-└── devcontainer-classroom-exam-ts:2           01:27   + deno, AI and coding assistance off
+devcontainer-core:1                            22:17   Debian 13, devcon, user dev, zsh, SSH server
+├── devcontainer-base:2                        23:17   + go, build-tools, node, deno, prettier, vscode-server
+│   ├── devcontainer-dev:2                     23:57   + github-cli
+│   ├── devcontainer-classroom-web:2           00:07   classroom settings, AI off
+│   └── devcontainer-classroom-web-advanced:2  00:17   + playwright-deps, AI on
+└── devcontainer-classroom-exam-ts:2           23:47   + deno, AI and coding assistance off
 ```
 
 This repository: **devcontainer-core**. Nightly checks in UTC. Repositories:
@@ -340,8 +340,11 @@ deletes only its old workflow runs.
 
 ### Schedule and chain build
 
-The nightly checks run in chain order, two hours after the image they build on
-(times in [Dependencies](#dependencies)). They do not start each other.
+The nightly checks run in chain order (times in [Dependencies](#dependencies)):
+core at 22:17 UTC (00:17 CEST), base one hour later, classroom-exam-ts 30
+minutes after base, then dev, classroom-web and classroom-web-advanced every
+10 minutes. They do not start each other. The cron times are in UTC, so in
+winter (CET) every check runs one hour earlier in local time.
 
 A manual run (**Actions → Release → Run workflow**, option `upstream` on by
 default) first starts the Release workflow of the image in its `FROM` line and

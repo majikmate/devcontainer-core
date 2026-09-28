@@ -12,10 +12,11 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
-  # Nightly check, first in the chain: the images that build on this image run
-  # their check two hours later (devcontainer-base, devcontainer-classroom-exam-ts).
+  # Nightly check at 22:17 UTC (00:17 CEST), first in the chain: the images
+  # that build on this image run their check later (devcontainer-base one hour
+  # later, devcontainer-classroom-exam-ts 90 minutes later).
   schedule:
-    - cron: "17 23 * * *"
+    - cron: "17 22 * * *"
   # Manual check ("Run workflow"): the same check as the nightly run, at once.
   # The chain build of the images that build on core starts it as well.
   workflow_dispatch:
