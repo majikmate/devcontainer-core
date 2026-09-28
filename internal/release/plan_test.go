@@ -53,6 +53,14 @@ func TestProjectTools(t *testing.T) {
 	}
 }
 
+// TestCurrentImage: the plan reads the newest release from the major tag,
+// never from latest.
+func TestCurrentImage(t *testing.T) {
+	if got := CurrentImage("ghcr.io/majikmate/devcontainer-base", 2); got != "ghcr.io/majikmate/devcontainer-base:2" {
+		t.Errorf("CurrentImage = %q", got)
+	}
+}
+
 func TestNextVersion(t *testing.T) {
 	cases := []struct{ last, step, want string }{
 		{"", "patch", "2.0.0"},
