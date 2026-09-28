@@ -9,7 +9,7 @@ import (
 
 // TempDir creates a temporary folder; the returned function removes it.
 func TempDir() (string, func(), error) {
-	dir, err := os.MkdirTemp("", "devenv-")
+	dir, err := os.MkdirTemp("", "devcon-")
 	if err != nil {
 		return "", nil, err
 	}

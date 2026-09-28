@@ -1,15 +1,15 @@
 # Shared workflow: plan, build, test and release a Dev Container image.
 #
 # Used by the release.yml workflow of every image repository. All logic is in
-# the Go program devenv-release of this repository (cmd/devenv-release), which
+# the Go program devcon-release of this repository (cmd/devcon-release), which
 # every job runs with "go run". The workflow only connects the jobs.
 #
 #   upstream  manual chain build: run the Release workflows of the images that
 #             this image builds on first, and wait for them (GitHub App token)
-#   prepare   collect the inputs, decide, compute the version (devenv-release plan)
-#   build     build, label and test the image per architecture (devenv-release build)
-#   publish   multi-architecture tags and GitHub release (devenv-release publish)
-#   prune     delete the outdated package versions (devenv-release prune)
+#   prepare   collect the inputs, decide, compute the version (devcon-release plan)
+#   build     build, label and test the image per architecture (devcon-release build)
+#   publish   multi-architecture tags and GitHub release (devcon-release publish)
+#   prune     delete the outdated package versions (devcon-release prune)
 name: "Shared: Dev Container image"
 
 on:
@@ -92,13 +92,13 @@ jobs:
         with:
           repository: majikmate/devcontainer-core
           ref: ${{ env.TOOLING_REF }}
-          path: .devenv
+          path: .devcon
           persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: .devenv/go.mod
+          go-version-file: .devcon/go.mod
           cache: false
 
       - name: Create a token of the GitHub App
@@ -116,7 +116,7 @@ jobs:
         env:
           UPSTREAM_TOKEN: ${{ steps.token.outputs.token }}
         run: >-
-          go -C .devenv run ./cmd/devenv-release upstream
+          go -C .devcon run ./cmd/devcon-release upstream
           --repositories "${{ inputs.upstream-repositories }}"
           --actor "${{ steps.token.outputs.app-slug }}[bot]"
 
@@ -149,13 +149,13 @@ jobs:
         with:
           repository: majikmate/devcontainer-core
           ref: ${{ env.TOOLING_REF }}
-          path: .devenv
+          path: .devcon
           persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: .devenv/go.mod
+          go-version-file: .devcon/go.mod
           cache: false
 
       # GitHub disables scheduled workflows after 60 days without repository activity
@@ -163,7 +163,7 @@ jobs:
         if: github.event_name == 'schedule'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: go -C .devenv run ./cmd/devenv-release keep-alive --workflow "$GITHUB_WORKFLOW_REF"
+        run: go -C .devcon run ./cmd/devcon-release keep-alive --workflow "$GITHUB_WORKFLOW_REF"
 
       # The plan reads the tools and pin rules of the layers from the features
       # library: the newest version, as in the nightly build of core
@@ -174,7 +174,7 @@ jobs:
           # (sum.golang.org), so the plan does not depend on that service
           GOPROXY: direct
           GONOSUMDB: github.com/majikmate/*
-        run: go -C .devenv get github.com/majikmate/devcontainer-features@latest
+        run: go -C .devcon get github.com/majikmate/devcontainer-features@latest
 
       - name: Plan
         id: plan
@@ -182,7 +182,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: >-
-          go -C .devenv run ./cmd/devenv-release plan
+          go -C .devcon run ./cmd/devcon-release plan
           --dir "$GITHUB_WORKSPACE"
           --major "${{ inputs.major-version }}"
           --config-paths "${{ inputs.config-paths }}"
@@ -215,13 +215,13 @@ jobs:
         with:
           repository: majikmate/devcontainer-core
           ref: ${{ env.TOOLING_REF }}
-          path: .devenv
+          path: .devcon
           persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: .devenv/go.mod
+          go-version-file: .devcon/go.mod
           cache: false
 
       - name: Log in to the GitHub Container Registry
@@ -242,7 +242,7 @@ jobs:
           IMAGE_TITLE: ${{ inputs.image-title }}
           IMAGE_DESCRIPTION: ${{ inputs.image-description }}
         run: >-
-          go -C .devenv run ./cmd/devenv-release build
+          go -C .devcon run ./cmd/devcon-release build
           --dir "$GITHUB_WORKSPACE"
           --arch "${{ matrix.arch }}"
           --version "${{ needs.prepare.outputs.version }}"
@@ -279,13 +279,13 @@ jobs:
         with:
           repository: majikmate/devcontainer-core
           ref: ${{ env.TOOLING_REF }}
-          path: .devenv
+          path: .devcon
           persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: .devenv/go.mod
+          go-version-file: .devcon/go.mod
           cache: false
 
       - name: Download the test output
@@ -308,7 +308,7 @@ jobs:
           REASON: ${{ needs.prepare.outputs.reason }}
           INPUTS: ${{ needs.prepare.outputs.inputs }}
         run: >-
-          go -C .devenv run ./cmd/devenv-release publish
+          go -C .devcon run ./cmd/devcon-release publish
           --version "${{ needs.prepare.outputs.version }}"
           --tags "${{ needs.prepare.outputs.tags }}"
           --reason "$REASON"
@@ -330,20 +330,20 @@ jobs:
         with:
           repository: majikmate/devcontainer-core
           ref: ${{ env.TOOLING_REF }}
-          path: .devenv
+          path: .devcon
           persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: .devenv/go.mod
+          go-version-file: .devcon/go.mod
           cache: false
 
       - name: List or delete the outdated versions and workflow runs
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: >-
-          go -C .devenv run ./cmd/devenv-release prune
+          go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
           --max-age-days "${{ inputs.prune-max-age-days }}"
           --runs-max-age-days "${{ inputs.prune-max-age-days }}"

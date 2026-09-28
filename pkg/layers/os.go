@@ -47,7 +47,7 @@ func init() {
 			{Name: "debian", Arg: "DEBIAN_SERIES", Source: debianSource, Version: layer.Config{Pin: "trixie"}},
 		},
 		// Only at build time: the release workflow rebuilds the images when
-		// Debian publishes security updates (see "devenv os-updates").
+		// Debian publishes security updates (see "devcon os-updates").
 		Install: func(e *layer.Env) error {
 			if err := debian.AptUpdate(); err != nil {
 				return err
@@ -83,7 +83,7 @@ func init() {
 			release, _ := sys.Output("sh", "-c", ". /etc/os-release && echo $PRETTY_NAME")
 			t.Version("debian", series)
 			t.Version("debian-release", release)
-			t.Command("Debian release is supported (devenv check os)", "devenv", "check", "os")
+			t.Command("Debian release is supported (devcon check os)", "devcon", "check", "os")
 			for _, cmd := range []string{"zsh", "sudo", "git", "curl", "jq", "less", "nano", "ssh", "zip", "unzip", "rsync", "htop"} {
 				t.HasCommand(cmd)
 			}
@@ -97,7 +97,7 @@ func init() {
 // updates.
 func osUpdates(args []string) error {
 	if !sys.IsRoot() {
-		return fmt.Errorf("os-updates needs root (sudo devenv os-updates)")
+		return fmt.Errorf("os-updates needs root (sudo devcon os-updates)")
 	}
 	securityOnly := len(args) > 0 && args[0] == "--security"
 	updates, err := debian.PendingUpdates()
@@ -135,7 +135,7 @@ func checkDebianRelease(releases []debian.Release, series string, today time.Tim
 }
 
 // debianChange says where the Debian release is configured.
-const debianChange = "the pinned Debian release (Tool.Version of the tool debian in the layer os of devcontainer-core, or customizations.devenv.debian.pin in the devcontainer.json of the image)"
+const debianChange = "the pinned Debian release (Tool.Version of the tool debian in the layer os of devcontainer-core, or customizations.devcon.debian.pin in the devcontainer.json of the image)"
 
 // debianSource lists the released Debian releases, newest first. A release
 // line is a release series (for example "trixie" for Debian 13).

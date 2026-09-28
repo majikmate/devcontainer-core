@@ -1,6 +1,6 @@
 # Shared workflow: list or delete the outdated versions of the image package
 # and the outdated workflow runs of the calling repository
-# (devenv-release prune).
+# (devcon-release prune).
 #
 # Used by the manual workflow prune.yml of every image repository, and by
 # devcontainer-features with runs-only (it has no package, only workflow
@@ -60,20 +60,20 @@ jobs:
         with:
           repository: majikmate/devcontainer-core
           ref: ${{ env.TOOLING_REF }}
-          path: .devenv
+          path: .devcon
           persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: .devenv/go.mod
+          go-version-file: .devcon/go.mod
           cache: false
 
       - name: List or delete the outdated versions and workflow runs
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: >-
-          go -C .devenv run ./cmd/devenv-release prune
+          go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
           --max-age-days "${{ inputs.max-age-days }}"
           --runs-max-age-days "${{ inputs.max-age-days }}"

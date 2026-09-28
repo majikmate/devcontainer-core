@@ -23,10 +23,11 @@ import (
 	"github.com/majikmate/devcontainer-core/pkg/versions"
 )
 
-// Labels in which an image records the inputs of its build.
+// Labels in which an image records the inputs of its build. Own labels have
+// the prefix "nimblescape.devcon.".
 const (
-	LabelInputs      = "devenv.inputs"
-	LabelFingerprint = "devenv.fingerprint"
+	LabelInputs      = "nimblescape.devcon.inputs"
+	LabelFingerprint = "nimblescape.devcon.fingerprint"
 )
 
 // defaultConfigPaths are the configuration paths of an image repository: the
@@ -68,7 +69,7 @@ type Project struct {
 	Dockerfile      string
 	Context         string
 	// Tools overrides the release configuration of the features for this
-	// image (customizations.devenv.<tool>).
+	// image (customizations.devcon.<tool>).
 	Tools map[string]ToolConfig
 }
 
@@ -76,7 +77,7 @@ type Project struct {
 // of the image that installs its layer. It overrides the configuration of
 // the feature:
 //
-//	"customizations": {"devenv": {"deno": {"pin": "2", "channel": "stable"}}}
+//	"customizations": {"devcon": {"deno": {"pin": "2", "channel": "stable"}}}
 //
 // "pin": "" removes the pin of the feature (the newest release).
 type ToolConfig struct {
@@ -109,7 +110,7 @@ func ReadProject(dir string) (*Project, error) {
 			Context    string `json:"context"`
 		} `json:"build"`
 		Customizations struct {
-			Devenv map[string]ToolConfig `json:"devenv"`
+			Devcon map[string]ToolConfig `json:"devcon"`
 		} `json:"customizations"`
 	}
 	if err := json.Unmarshal(devcontainer.StripJSONC(data), &config); err != nil {
@@ -126,7 +127,7 @@ func ReadProject(dir string) (*Project, error) {
 		DevcontainerDir: devDir,
 		Dockerfile:      filepath.Join(devDir, config.Build.Dockerfile),
 		Context:         filepath.Clean(filepath.Join(devDir, config.Build.Context)),
-		Tools:           config.Customizations.Devenv,
+		Tools:           config.Customizations.Devcon,
 	}, nil
 }
 
@@ -168,7 +169,7 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 	// 2. Tools: the versions of the tools of the installed layers, chosen by
 	// the general rule of layer.Tool.Resolve with the configuration of the
 	// feature (Tool.Version) and the overrides of the image (devcontainer.json,
-	// customizations.devenv); a pinned line at its end of life and an unknown
+	// customizations.devcon); a pinned line at its end of life and an unknown
 	// channel stop the release. The line and the channel are recorded as
 	// inputs, so the release notes show them.
 	configured := map[string]bool{}
@@ -219,7 +220,7 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 	}
 	for name := range project.Tools {
 		if !configured[name] {
-			return nil, fmt.Errorf("devcontainer.json: customizations.devenv.%s: the Dockerfile installs no layer with the tool %s", name, name)
+			return nil, fmt.Errorf("devcontainer.json: customizations.devcon.%s: the Dockerfile installs no layer with the tool %s", name, name)
 		}
 	}
 	// 3. Base images: the digest of each FROM image, with the build
@@ -234,7 +235,7 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 	}
 
 	// 4. Features: the newest version of devcontainer-features, when the
-	// Dockerfile builds devenv with it (core)
+	// Dockerfile builds devcon with it (core)
 	if contains(dockerfile.Args, FeaturesArg) {
 		version, err := newestTag(FeaturesRepository)
 		if err != nil {
@@ -245,7 +246,7 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 		}
 		p.BuildArgs[FeaturesArg] = p.Inputs["tool/features"]
 	}
-	// The Go that builds devenv (core): the newest release of the Go line in
+	// The Go that builds devcon (core): the newest release of the Go line in
 	// go.mod (go directive, for example 1.27 → 1.27.1). It is not the Go of
 	// the feature go. The end of life of the line stops the release.
 	if contains(dockerfile.Args, ToolchainArg) {
@@ -386,19 +387,19 @@ func nextVersion(last string, major int, step string) string {
 	}
 }
 
-// The features library: the core Dockerfile builds devenv with the version
+// The features library: the core Dockerfile builds devcon with the version
 // in the build argument FEATURES_VERSION.
 const (
 	FeaturesRepository = "https://github.com/majikmate/devcontainer-features"
 	FeaturesArg        = "FEATURES_VERSION"
 )
 
-// The Go that builds devenv: the core Dockerfile uses the build argument
-// DEVENV_GO_VERSION (GOTOOLCHAIN=go<version>); the plan records it as the
-// tool devenv-go.
+// The Go that builds devcon: the core Dockerfile uses the build argument
+// DEVCON_GO_VERSION (GOTOOLCHAIN=go<version>); the plan records it as the
+// tool devcon-go.
 const (
-	ToolchainArg  = "DEVENV_GO_VERSION"
-	ToolchainName = "devenv-go"
+	ToolchainArg  = "DEVCON_GO_VERSION"
+	ToolchainName = "devcon-go"
 )
 
 // goModLine returns the Go line of the go directive of a go.mod file, for

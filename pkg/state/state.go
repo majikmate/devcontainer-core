@@ -1,4 +1,4 @@
-// Package state stores what devenv has installed in an image: the list of
+// Package state stores what devcon has installed in an image: the list of
 // installed layers and the name of the development user.
 package state
 
@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// Dir is the folder of the devenv files in the image.
-const Dir = "/usr/local/share/devenv"
+// Dir is the folder of the devcon files in the image.
+const Dir = "/usr/local/share/devcon"
 
 var (
 	layersFile = filepath.Join(Dir, "layers")

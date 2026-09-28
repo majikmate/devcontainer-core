@@ -38,7 +38,7 @@ func init() {
 			for locale := range locales {
 				enabled = append(enabled, locale+" UTF-8")
 			}
-			content := string(gen) + "\n# Enabled by devenv (layer locales)\n" + strings.Join(enabled, "\n") + "\n"
+			content := string(gen) + "\n# Enabled by devcon (layer locales)\n" + strings.Join(enabled, "\n") + "\n"
 			if err := sys.WriteFile("/etc/locale.gen", content, 0o644); err != nil {
 				return err
 			}
