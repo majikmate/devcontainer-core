@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // The layer os: the Debian release of the images (tool debian), the upgrade
 // of all Debian packages and the basic tools, and the support check of the
 // installed Debian release.

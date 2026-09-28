@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# © 2026 Hannes Stauss (scalarion@nimblescape.com)
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
 # Shared workflow: plan, build, test and release a Dev Container image.
 #
 # Used by the release.yml workflow of every image repository. All logic is in
@@ -157,6 +161,11 @@ jobs:
         with:
           go-version-file: .devcon/go.mod
           cache: false
+
+      # Every authored file carries the license header, every Markdown
+      # document the license footer, and the root LICENSE file exists
+      - name: Check the license notices
+        run: go -C .devcon run ./cmd/devcon-release notices --dir "$GITHUB_WORKSPACE"
 
       # GitHub disables scheduled workflows after 60 days without repository activity
       - name: Keep the scheduled check enabled

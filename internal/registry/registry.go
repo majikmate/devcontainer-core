@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Package registry reads images from container registries (Docker Hub,
 // ghcr.io and other registries of the OCI distribution API) without other
 // tools: the raw manifest of an image, its labels and its creation time.

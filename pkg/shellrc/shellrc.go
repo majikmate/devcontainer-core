@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Package shellrc manages the shell configuration of the image. Layers add
 // files to two folders; bash and zsh load them in interactive shells:
 //

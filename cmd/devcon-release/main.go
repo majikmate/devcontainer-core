@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Command devcon-release is the release tool of the Dev Container images. The
 // shared workflow .github/workflows/devcontainer-image.yml runs it with
 // "go run" (CGO_ENABLED=0):
@@ -10,6 +14,7 @@
 //	devcon-release inspect     show the digest, labels and creation time of an image
 //	devcon-release module-release  create the next version tag of a Go module (no image)
 //	devcon-release prune       delete outdated versions of container packages (or whole packages) and old workflow runs
+//	devcon-release notices     check the license notices of a repository
 //
 // Defaults come from the environment of GitHub Actions (GITHUB_REPOSITORY,
 // GITHUB_SHA, GITHUB_TOKEN, ...).
@@ -30,11 +35,12 @@ import (
 
 	"github.com/majikmate/devcontainer-core/internal/registry"
 	"github.com/majikmate/devcontainer-core/internal/release"
+	"github.com/majikmate/devcontainer-core/pkg/notices"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release|prune [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: devcon-release plan|build|publish|upstream|keep-alive|inspect|module-release|prune|notices [flags]")
 		os.Exit(2)
 	}
 	var err error
@@ -55,6 +61,8 @@ func main() {
 		err = moduleRelease(os.Args[2:])
 	case "prune":
 		err = prune(os.Args[2:])
+	case "notices":
+		err = checkNotices(os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -62,6 +70,31 @@ func main() {
 		fmt.Printf("::error::%v\n", err)
 		os.Exit(1)
 	}
+}
+
+// checkNotices checks the license notices of the repository in --dir (the
+// files that git tracks) and reports every finding as a workflow error.
+func checkNotices(args []string) error {
+	fs := flag.NewFlagSet("notices", flag.ExitOnError)
+	dir := fs.String("dir", env("GITHUB_WORKSPACE", "."), "root of the repository")
+	fs.Parse(args)
+
+	files, err := notices.TrackedFiles(*dir)
+	if err != nil {
+		return err
+	}
+	findings, err := notices.Check(*dir, files)
+	if err != nil {
+		return err
+	}
+	for _, f := range findings {
+		fmt.Printf("::error file=%s,line=%d::%s\n", f.Path, f.Line, f.Message)
+	}
+	if len(findings) > 0 {
+		return fmt.Errorf("%d license notices are missing or wrong", len(findings))
+	}
+	fmt.Printf("License notices: %d files checked, all correct\n", len(files))
+	return nil
 }
 
 func env(name, fallback string) string {

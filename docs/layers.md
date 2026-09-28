@@ -368,3 +368,7 @@ When at least one installed layer has a start step, `devcon metadata` adds this 
   "postStartCommand": "devcon start"
 }
 ```
+
+---
+
+© 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](../LICENSE).

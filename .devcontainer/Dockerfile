@@ -1,4 +1,9 @@
 # check=skip=InvalidDefaultArgInFrom
+# SPDX-License-Identifier: MIT
+# © 2026 Hannes Stauss (scalarion@nimblescape.com)
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+#
+# The parser directive above (check=...) must stay on the first line.
 # (DEBIAN_SERIES has no default on purpose: the release workflow passes it.)
 #
 # devcontainer-core: the base of all Dev Container images.

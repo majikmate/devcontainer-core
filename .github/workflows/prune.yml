@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# © 2026 Hannes Stauss (scalarion@nimblescape.com)
+# Licensed under the MIT License. See LICENSE in the repository root for details.
+
 # Manual run: lists (report) or deletes (apply) the outdated versions of
 # ghcr.io/majikmate/devcontainer-core and the outdated workflow runs of this
 # repository. The logic is in the shared workflow devcontainer-prune.yml of

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // Package debian contains the Debian-specific helpers of the framework: the
 // package manager apt and the list of pending package updates. The images are
 // based on Debian (see the core image), so layers that install system

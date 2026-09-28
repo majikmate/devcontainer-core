@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
 // devcontainer-core: the base of all Dev Container images.
 // The layers declare their own settings (user, terminal, lifecycle commands);
 // this file adds the settings that every image shares. The release workflow
