@@ -23,6 +23,7 @@ the features version of `go.mod`; the images use the newest features version.
 | [`pure-prompt`](#pure-prompt) | Pure prompt for zsh (https://github.com/sindresorhus/pure) | user | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`sshd`](#sshd) | SSH server on port 2222 (keys only, no root) with the keys of the owner's GitHub account | user | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
 | [`user`](#user) | creates the development user with zsh and sudo | os | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
+| [`vscode-server`](#vscode-server) | VS Code Server of the newest VS Code release, ready for the Dev Containers extension | user | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 
 ## aliases
 
@@ -357,6 +358,21 @@ Entry in the image label `devcontainer.metadata`:
   "remoteUser": "dev"
 }
 ```
+
+## vscode-server
+
+VS Code Server of the newest VS Code release, ready for the Dev Containers extension.
+
+Dockerfile: `RUN devcon install vscode-server`
+
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/vscodeserver`)
+
+Needs the layers: user.
+
+Tools with versions (the release workflow chooses the version with the configuration of the feature and the overrides in `customizations.devcon` of the devcontainer.json, and passes it as build argument):
+
+- vscode-server: `VSCODE_SERVER_VERSION`; source: VS Code releases (https://update.code.visualstudio.com/api/releases/stable); pinned line: none (the newest release); only the newest VS Code release gets updates (https://code.visualstudio.com/docs/supporting/faq)
+
 
 ## Start step (framework)
 

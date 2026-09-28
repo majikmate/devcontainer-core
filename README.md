@@ -32,7 +32,7 @@ Python scripts.
 devcontainer-features                                  Go library of layers, compiled into devcon
   ▼
 devcontainer-core:1                            23:17   Debian 13, devcon, user dev, zsh, SSH server
-├── devcontainer-base:2                        01:17   + go, build-tools, node, deno, prettier
+├── devcontainer-base:2                        01:17   + go, build-tools, node, deno, prettier, vscode-server
 │   ├── devcontainer-dev:2                     03:37   + github-cli
 │   ├── devcontainer-classroom-web:2           03:47   classroom settings, AI off
 │   └── devcontainer-classroom-web-advanced:2  03:57   + playwright-deps, AI on
@@ -136,6 +136,7 @@ The release notes show the result as inputs `tool/<name>`, `pin/<name>` and
 | `prettier`, `prettier-plugin-tailwindcss` | `prettier` (features) | [`prettier/prettier.go`](https://github.com/majikmate/devcontainer-features/blob/main/prettier/prettier.go#L32-L37) | none: the newest release | — |
 | `gh` | `github-cli` (features) | [`githubcli/githubcli.go`](https://github.com/majikmate/devcontainer-features/blob/main/githubcli/githubcli.go#L30-L33) | none: the newest release | — |
 | `pure` | `pure-prompt` (features) | [`pureprompt/pureprompt.go`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31) | none: the newest release | — |
+| `vscode-server` | `vscode-server` (features) | [`vscodeserver/vscodeserver.go`](https://github.com/majikmate/devcontainer-features/blob/main/vscodeserver/vscodeserver.go#L38-L41) | none: the newest VS Code release | — |
 
 gopls, dlv, staticcheck and govulncheck have no constants: they follow `go`
 (the newest release that works with the installed Go, see
