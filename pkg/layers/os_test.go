@@ -6,6 +6,9 @@ package layers
 
 import (
 	"errors"
+	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +45,37 @@ func TestCheckDebianRelease(t *testing.T) {
 	for _, part := range []string{"Debian 12 (bookworm) has reached its end of life", "ended on 2026-06-10", "supported: 13 (trixie)", "customizations.devcon.debian.pin"} {
 		if !strings.Contains(err.Error(), part) {
 			t.Errorf("message %q does not contain %q", err, part)
+		}
+	}
+}
+
+// readmeConstantLink matches a README link to the Debian constants of this
+// file, with its line range.
+var readmeConstantLink = regexp.MustCompile(`pkg/layers/os\.go#L([0-9]+)-L([0-9]+)\)`)
+
+// TestReadmeLinksToConstants: the README links to the constants debianPin and
+// debianChannel with a line range; the range must still be their const block.
+// The READMEs of the image repositories use the same range.
+func TestReadmeLinksToConstants(t *testing.T) {
+	readme, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := os.ReadFile("os.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(source), "\n")
+	links := readmeConstantLink.FindAllStringSubmatch(string(readme), -1)
+	if len(links) == 0 {
+		t.Fatal("the README has no link to the Debian constants")
+	}
+	for _, m := range links {
+		from, _ := strconv.Atoi(m[1])
+		to, _ := strconv.Atoi(m[2])
+		if from < 1 || to > len(lines) || from >= to || lines[from-1] != "const (" || lines[to-1] != ")" ||
+			!strings.Contains(strings.Join(lines[from-1:to], "\n"), "debianPin") {
+			t.Errorf("README link %s does not point to the const block with debianPin", m[0])
 		}
 	}
 }

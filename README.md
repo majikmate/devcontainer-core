@@ -54,13 +54,13 @@ Each layer is one line in [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile)
 
 | Layer | Content | Version |
 | ----- | ------- | ------- |
-| `os` | all Debian updates and the basic tools | Debian 13 "trixie" |
+| `os` | all Debian updates and the basic tools | Debian 13 "trixie" ([`debianPin`](pkg/layers/os.go#L31-L34)) |
 | `user` | user `dev` (UID 1000) with zsh and sudo | — |
-| `locales` | locales of `LANG` and `LC_*`, time zone `TZ` | Debian packages |
+| `locales` | locales of `LANG` and `LC_*`, time zone `TZ` | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
 | `git` | system-wide git settings (rebase on pull, auto stash) | — |
 | `aliases` | shell aliases: ls, ll, grep, vs | — |
-| `pure-prompt` | Pure prompt for zsh | newest release |
-| `sshd` | SSH server on port 2222 (see [SSH access](#ssh-access)) | Debian packages |
+| `pure-prompt` | Pure prompt for zsh | newest release ([`purePin`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31)) |
+| `sshd` | SSH server on port 2222 (see [SSH access](#ssh-access)) | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
 
 `devcon` is built with the newest version of devcontainer-features (build
 argument `FEATURES_VERSION`). A new features version leads to a new core image;
@@ -101,7 +101,7 @@ tool:
 2. The **feature decides** the release line (`pin`) and the release channel
    (`channel`) in `Tool.Version`. The values are constants `<tool>Pin` and
    `<tool>Channel` at the top of the layer file, directly after the imports
-   (for example `debianPin` in [`pkg/layers/os.go`](pkg/layers/os.go),
+   (for example `debianPin` in [`pkg/layers/os.go`](pkg/layers/os.go#L31-L34),
    `denoPin` in `deno/deno.go` of devcontainer-features). Empty means the
    newest release of the default channel.
 3. The `devcontainer.json` of the image that installs the layer **can
@@ -127,11 +127,19 @@ The release notes show the result as inputs `tool/<name>`, `pin/<name>` and
 
 | Tool | Layer | Constants in | Pin | Channel |
 | ---- | ----- | ------------ | --- | ------- |
-| `debian` | `os` (core) | [`pkg/layers/os.go`](pkg/layers/os.go) | `trixie` (Debian 13) | — |
-| `go` | `go` (features) | [`golang/golang.go`](https://github.com/majikmate/devcontainer-features/blob/main/golang/golang.go) | `1.27` | — |
-| `node` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go) | `24` | `lts` (or `current`) |
-| `deno` | `deno` (features) | [`deno/deno.go`](https://github.com/majikmate/devcontainer-features/blob/main/deno/deno.go) | `2` | `lts` (or `stable`) |
-| all other tools | | the file of their layer | none: the newest release | — |
+| `debian` | `os` (core) | [`pkg/layers/os.go`](pkg/layers/os.go#L31-L34) | `trixie` (Debian 13) | — |
+| `go` | `go` (features) | [`golang/golang.go`](https://github.com/majikmate/devcontainer-features/blob/main/golang/golang.go#L49-L54) | `1.27` | — |
+| `node` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go#L39-L44) | `24` | `lts` (or `current`) |
+| `deno` | `deno` (features) | [`deno/deno.go`](https://github.com/majikmate/devcontainer-features/blob/main/deno/deno.go#L36-L39) | `2` | `lts` (or `stable`) |
+| `golangci-lint` | `go` (features) | [`golang/golang.go`](https://github.com/majikmate/devcontainer-features/blob/main/golang/golang.go#L49-L54) | none: the newest release | — |
+| `nvm` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go#L39-L44) | none: the newest release | — |
+| `prettier`, `prettier-plugin-tailwindcss` | `prettier` (features) | [`prettier/prettier.go`](https://github.com/majikmate/devcontainer-features/blob/main/prettier/prettier.go#L32-L37) | none: the newest release | — |
+| `gh` | `github-cli` (features) | [`githubcli/githubcli.go`](https://github.com/majikmate/devcontainer-features/blob/main/githubcli/githubcli.go#L30-L33) | none: the newest release | — |
+| `pure` | `pure-prompt` (features) | [`pureprompt/pureprompt.go`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31) | none: the newest release | — |
+
+gopls, dlv, staticcheck and govulncheck have no constants: they follow `go`
+(the newest release that works with the installed Go, see
+[`golang/versions.go`](https://github.com/majikmate/devcontainer-features/blob/main/golang/versions.go)).
 
 **End of life.** A source can have a support rule (Go, Node.js, Deno,
 Debian). At the end of life of a pinned line, the release check and the build
@@ -267,8 +275,9 @@ jobs:
 
 ### When a new version is released
 
-The plan compares the inputs of the newest release (label `nimblescape.devcon.inputs`) with
-the current inputs:
+The newest release is the image with the major tag of the current major line
+(for example `devcontainer-base:2`), never `latest`. The plan compares its
+inputs (label `nimblescape.devcon.inputs`) with the current inputs:
 
 - `config`: the content of the configuration paths (input `config-paths`,
   default `.devcontainer` and `README.md`, because GitHub shows the README on
@@ -293,8 +302,9 @@ image; an end of life stops the run. A new version is released when:
 
 **Version step** (`bump: auto`): minor when Go 1.x or the major version of
 Node.js or Deno changes, otherwise patch; the major version is `major-version`.
-**Tags:** `X.Y.Z`, `X.Y`, `X` and `latest`. Pull requests build and test
-without a release.
+**Tags:** `X.Y.Z`, `X.Y`, `X` and `latest`. Images and `devcontainer.json`
+files use the major tag (`FROM ghcr.io/majikmate/devcontainer-base:2`), not
+`latest`. Pull requests build and test without a release.
 
 ### Kept package versions
 

@@ -145,7 +145,11 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	current := inspectImage(o.Image + ":latest")
+	// The newest release of the current major line: the pinned major tag
+	// (for example :2), never :latest. For the first release of a new major
+	// line the tag does not exist yet, and the plan releases.
+	newest := CurrentImage(o.Image, o.Major)
+	current := inspectImage(newest)
 	previous := parseInputs(current.Labels[LabelInputs])
 
 	p := &Plan{Inputs: map[string]string{}, BuildArgs: map[string]string{}, ToolVersion: map[string]string{}}
@@ -283,10 +287,10 @@ func MakePlan(o PlanOptions) (*Plan, error) {
 	// 5. Pending Debian updates of the newest image (not for pull requests
 	// and tags, which build anyway)
 	if o.Event != "pull_request" && !tagRef.MatchString(o.Ref) && !current.Created.IsZero() {
-		p.Updates = ownUpdates(o.Image+":latest", dockerfile)
+		p.Updates = ownUpdates(newest, dockerfile)
 		// 6. Support of the installed layers (for example the Debian
 		// release of the layer os): an end of life stops the release
-		if err := checkSupport(o.Image+":latest", dockerfile); err != nil {
+		if err := checkSupport(newest, dockerfile); err != nil {
 			return nil, fmt.Errorf("%s: %w", project.Dockerfile, err)
 		}
 	}
@@ -349,6 +353,13 @@ func (p *Plan) decide(o PlanOptions, current imageInfo, previous map[string]stri
 		p.Tags = append(p.Tags, "latest")
 	}
 	return nil
+}
+
+// CurrentImage returns the reference of the newest release of the current
+// major line: the image with its major tag, for example
+// "ghcr.io/majikmate/devcontainer-base:2".
+func CurrentImage(image string, major int) string {
+	return image + ":" + strconv.Itoa(major)
 }
 
 // bumpStep: patch for every automatic release; minor when the major version of
