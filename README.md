@@ -224,26 +224,6 @@ layer (id `devcon/<layer>`), one entry for the image (id
 | `devcon ssh-keys` | container (layer sshd) | loads the SSH keys of the owner's GitHub account |
 | `devcon sshd-start` | container, root (layer sshd) | starts the SSH server |
 | `devcon os-updates [--security]` | root (layer os) | lists pending Debian updates without installing them |
-| `devcon vscode-server sync --dir <folder> [--keep 3]` | monitor on the remote VM | keeps the VS Code Servers of the newest VS Code releases in a folder (see below) |
-
-### VS Code Server outside the images
-
-No image contains a VS Code Server (one server adds about 219 MB to an
-image). The monitor on the remote VM keeps the servers in a Docker volume, and
-the remote build mounts this volume read-only into the containers:
-
-```
-docker run --rm -v devcon-vscode-server:/srv/vscode-server \
-  ghcr.io/majikmate/devcontainer-core:1 \
-  devcon vscode-server sync --dir /srv/vscode-server --keep 3
-```
-
-The command keeps the newest release of each of the three newest VS Code
-minor versions, checks every download against the SHA-256 checksum of the VS
-Code update service, and deletes older servers. The folder has the layout of
-`~/.vscode-server` (`bin/<commit>`, `cli/servers/Stable-<commit>/server`). A
-VS Code of another release downloads its server as usual. Details:
-[VS Code Server outside the images](https://github.com/majikmate/devcontainer-features#vs-code-server-outside-the-images).
 
 ## SSH access
 
