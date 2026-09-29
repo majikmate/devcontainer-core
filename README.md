@@ -32,7 +32,7 @@ Python scripts.
 devcontainer-features                                  Go library of layers, compiled into devcon
   ▼
 devcontainer-core:1                            22:17   Debian 13, devcon, user dev, zsh, SSH server
-├── devcontainer-base:2                        23:17   + go, build-tools, node, deno, prettier, vscode-server
+├── devcontainer-base:2                        23:17   + go, build-tools, node, deno, prettier
 │   ├── devcontainer-dev:2                     23:57   + github-cli
 │   ├── devcontainer-classroom-web:2           00:07   classroom settings, AI off
 │   └── devcontainer-classroom-web-advanced:2  00:17   + playwright-deps, AI on
@@ -136,7 +136,6 @@ The release notes show the result as inputs `tool/<name>`, `pin/<name>` and
 | `prettier`, `prettier-plugin-tailwindcss` | `prettier` (features) | [`prettier/prettier.go`](https://github.com/majikmate/devcontainer-features/blob/main/prettier/prettier.go#L32-L37) | none: the newest release | — |
 | `gh` | `github-cli` (features) | [`githubcli/githubcli.go`](https://github.com/majikmate/devcontainer-features/blob/main/githubcli/githubcli.go#L30-L33) | none: the newest release | — |
 | `pure` | `pure-prompt` (features) | [`pureprompt/pureprompt.go`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31) | none: the newest release | — |
-| `vscode-server` | `vscode-server` (features) | [`vscodeserver/vscodeserver.go`](https://github.com/majikmate/devcontainer-features/blob/main/vscodeserver/vscodeserver.go#L38-L41) | none: the newest VS Code release | — |
 
 gopls, dlv, staticcheck and govulncheck have no constants: they follow `go`
 (the newest release that works with the installed Go, see
@@ -225,6 +224,26 @@ layer (id `devcon/<layer>`), one entry for the image (id
 | `devcon ssh-keys` | container (layer sshd) | loads the SSH keys of the owner's GitHub account |
 | `devcon sshd-start` | container, root (layer sshd) | starts the SSH server |
 | `devcon os-updates [--security]` | root (layer os) | lists pending Debian updates without installing them |
+| `devcon vscode-server sync --dir <folder> [--keep 3]` | monitor on the remote VM | keeps the VS Code Servers of the newest VS Code releases in a folder (see below) |
+
+### VS Code Server outside the images
+
+No image contains a VS Code Server (one server adds about 219 MB to an
+image). The monitor on the remote VM keeps the servers in a Docker volume, and
+the remote build mounts this volume read-only into the containers:
+
+```
+docker run --rm -v devcon-vscode-server:/srv/vscode-server \
+  ghcr.io/majikmate/devcontainer-core:1 \
+  devcon vscode-server sync --dir /srv/vscode-server --keep 3
+```
+
+The command keeps the newest release of each of the three newest VS Code
+minor versions, checks every download against the SHA-256 checksum of the VS
+Code update service, and deletes older servers. The folder has the layout of
+`~/.vscode-server` (`bin/<commit>`, `cli/servers/Stable-<commit>/server`). A
+VS Code of another release downloads its server as usual. Details:
+[VS Code Server outside the images](https://github.com/majikmate/devcontainer-features#vs-code-server-outside-the-images).
 
 ## SSH access
 
