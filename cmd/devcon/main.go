@@ -19,13 +19,6 @@
 //
 //	devcon start [<command>...] run the start steps of the installed layers, then <command>
 //
-// Remote VM (the monitor, outside the images):
-//
-//	devcon vscode-server sync --dir <folder> [--keep 3]
-//	                            keep the VS Code Servers of the newest VS Code
-//	                            releases in <folder> (package vscodeserver of
-//	                            devcontainer-features)
-//
 // Layers add their own commands, for example "devcon ssh-keys" (layer sshd) or
 // "devcon os-updates" (layer os); "devcon help" lists them.
 package main
@@ -33,7 +26,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -45,7 +37,6 @@ import (
 	"github.com/majikmate/devcontainer-core/pkg/layer"
 	"github.com/majikmate/devcontainer-core/pkg/notices"
 	"github.com/majikmate/devcontainer-core/pkg/state"
-	"github.com/majikmate/devcontainer-features/vscodeserver"
 )
 
 func main() {
@@ -74,8 +65,6 @@ func main() {
 		if len(args) > 0 {
 			err = execCommand(args)
 		}
-	case "vscode-server":
-		err = vscodeServer(args)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -96,9 +85,6 @@ func usage() {
   metadata              print the devcontainer.metadata entries of the installed layers
   check [<layer>...]    check the support of the installed layers (for example the Debian release)
   start [<command>...]  run the start steps of the installed layers, then run <command>
-  vscode-server sync --dir <folder> [--keep 3]
-                        keep the VS Code Servers of the newest VS Code releases in <folder>
-                        (the monitor on the remote VM; not in an image)
 
 Commands of the layers:`)
 	for _, l := range layer.All() {
@@ -246,25 +232,6 @@ func start() {
 
 // layerCommand runs a command of a layer. Commands of installed layers come
 // first; a command of a layer that is not installed is an error.
-// vscodeServer runs "devcon vscode-server sync": the monitor on the remote VM
-// keeps the VS Code Servers of the newest VS Code releases in a folder (a
-// Docker volume that the remote build mounts into the containers).
-func vscodeServer(args []string) error {
-	if len(args) == 0 || args[0] != "sync" {
-		return fmt.Errorf("usage: devcon vscode-server sync --dir <folder> [--keep %d]", vscodeserver.DefaultKeep)
-	}
-	flags := flag.NewFlagSet("vscode-server sync", flag.ContinueOnError)
-	dir := flags.String("dir", "", "folder of the servers, for example a mounted Docker volume")
-	keep := flags.Int("keep", vscodeserver.DefaultKeep, "number of VS Code minor versions whose newest release is kept")
-	if err := flags.Parse(args[1:]); err != nil {
-		return err
-	}
-	if *dir == "" || flags.NArg() > 0 {
-		return fmt.Errorf("usage: devcon vscode-server sync --dir <folder> [--keep %d]", vscodeserver.DefaultKeep)
-	}
-	return vscodeserver.Sync(*dir, *keep)
-}
-
 func layerCommand(name string, args []string) error {
 	for _, l := range installedLayers() {
 		for _, c := range l.Commands {
