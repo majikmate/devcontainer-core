@@ -15,6 +15,7 @@ the features version of `go.mod`; the images use the newest features version.
 | [`git`](#git) | system-wide git settings (rebase on pull, auto stash) | os | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`github-cli`](#github-cli) | GitHub CLI (gh) from the GitHub release archive |  | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`go`](#go) | Go, gopls, dlv, staticcheck, govulncheck and golangci-lint | user | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
+| [`html-validate`](#html-validate) | HTML-validate, an offline HTML5 validator for VS Code, with a configuration that fits Prettier | os | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`locales`](#locales) | generates the locales of LANG and LC_* and sets the time zone TZ | os | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
 | [`node`](#node) | nvm, Node.js (the newest LTS release of the line 24) and npm | user, build-tools | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`os`](#os) | upgrades all Debian packages and installs the basic tools |  | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
@@ -169,6 +170,31 @@ Entry in the image label `devcontainer.metadata`:
   },
   "id": "devcon/go",
   "init": true
+}
+```
+
+## html-validate
+
+HTML-validate, an offline HTML5 validator for VS Code, with a configuration that fits Prettier.
+
+Dockerfile: `RUN devcon install html-validate`
+
+Source: [devcontainer-features](https://github.com/majikmate/devcontainer-features) (`github.com/majikmate/devcontainer-features/htmlvalidate`)
+
+Needs the layers: os.
+
+Entry in the image label `devcontainer.metadata`:
+
+```json
+{
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "html-validate.vscode-html-validate"
+      ]
+    }
+  },
+  "id": "devcon/html-validate"
 }
 ```
 
