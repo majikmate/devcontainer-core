@@ -2,17 +2,15 @@
 # © 2026 Hannes Stauss (scalarion@nimblescape.com)
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
-# Weekly updates of the GitHub actions, the Docker base images and the Go version.
-# The tools in the image (Go, Node.js, Deno, ...) are not updated here: the
-# release workflow checks their newest versions every night.
+# Weekly updates of the GitHub actions and the Go modules.
+# The tools in the image (Go, Node.js, Deno, ...) and the Debian base image are
+# not updated here: the release workflow checks their newest versions every
+# night. (The FROM line uses the build argument DEBIAN_SERIES, which Dependabot
+# cannot update, so there is no docker entry.)
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
-  - package-ecosystem: docker
-    directory: /.devcontainer
     schedule:
       interval: weekly
   - package-ecosystem: gomod
