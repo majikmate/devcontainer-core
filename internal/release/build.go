@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
+	"github.com/majikmate/devcontainer-core/pkg/state"
 	"github.com/majikmate/devcontainer-core/pkg/sys"
 )
 
@@ -68,16 +69,26 @@ func Build(o BuildOptions) error {
 		return err
 	}
 
-	// 3. Labels are set in a second step without file changes
+	// 3. Labels are set in a second step. The only file change is the image
+	// file for "devcon version" (name, version, commit, creation time); the
+	// files of the base images stay, so the image lists the whole chain.
 	context, err := os.MkdirTemp("", "devcon-label-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(context)
-	if err := os.WriteFile(filepath.Join(context, "Dockerfile"), []byte("FROM "+stage+"\n"), 0o644); err != nil {
+	url := o.ServerURL + "/" + o.Repository
+	info, err := json.MarshalIndent(state.Image{Name: o.Image, Version: o.Version, Revision: o.Revision, Created: o.Created, Source: url}, "", "  ")
+	if err != nil {
 		return err
 	}
-	url := o.ServerURL + "/" + o.Repository
+	if err := os.WriteFile(filepath.Join(context, "image.json"), append(info, '\n'), 0o644); err != nil {
+		return err
+	}
+	dockerfile := "FROM " + stage + "\nCOPY image.json " + state.ImagesDir + "/" + state.ImageFile(o.Image) + "\n"
+	if err := os.WriteFile(filepath.Join(context, "Dockerfile"), []byte(dockerfile), 0o644); err != nil {
+		return err
+	}
 	labels := map[string]string{
 		devcontainer.Label:                       label,
 		"org.opencontainers.image.title":         o.Title,
