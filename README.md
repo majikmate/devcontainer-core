@@ -52,15 +52,15 @@ This repository: **devcontainer-core**. Nightly checks in UTC. Repositories:
 
 Each layer is one line in [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile):
 
-| Layer | Content | Version |
-| ----- | ------- | ------- |
-| `os` | all Debian updates and the basic tools | Debian 13 "trixie" ([`debianPin`](pkg/layers/os.go#L31-L34)) |
-| `user` | user `dev` (UID 1000) with zsh and sudo | — |
-| `locales` | locales of `LANG` and `LC_*`, time zone `TZ` | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
-| `git` | system-wide git settings (rebase on pull, auto stash) | — |
-| `aliases` | shell aliases: ls, ll, grep, vs | — |
-| `pure-prompt` | Pure prompt for zsh | newest release ([`purePin`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31)) |
-| `sshd` | SSH server on port 2222 (see [SSH access](#ssh-access)) | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
+| Layer | Content | Code in | Version |
+| ----- | ------- | ------- | ------- |
+| `os` | all Debian updates and the basic tools | [core: `os.go`](pkg/layers/os.go) | Debian 13 "trixie" ([`debianPin`](pkg/layers/os.go#L31-L34)) |
+| `user` | user `dev` (UID 1000) with zsh and sudo | [core: `user.go`](pkg/layers/user.go) | — |
+| `locales` | locales of `LANG` and `LC_*`, time zone `TZ` | [core: `locales.go`](pkg/layers/locales.go) | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
+| `git` | system-wide git settings (rebase on pull, auto stash) | [features: `git`](https://github.com/majikmate/devcontainer-features/tree/main/git) | — |
+| `aliases` | shell aliases: ls, ll, grep, vs | [features: `aliases`](https://github.com/majikmate/devcontainer-features/tree/main/aliases) | — |
+| `pure-prompt` | Pure prompt for zsh | [features: `pureprompt`](https://github.com/majikmate/devcontainer-features/tree/main/pureprompt) | newest release ([`purePin`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31)) |
+| `sshd` | SSH server on port 2222 (see [SSH access](#ssh-access)) | [core: `sshd.go`](pkg/layers/sshd.go) | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
 
 `devcon` is built with the newest version of devcontainer-features (build
 argument `FEATURES_VERSION`). A new features version leads to a new core image;
@@ -221,6 +221,7 @@ layer (id `devcon/<layer>`), one entry for the image (id
 | `devcon metadata` | built image | prints the label entries of the installed layers |
 | `devcon check [<layer>…]` | built image | checks the support of the installed layers (end of life) |
 | `devcon start [<cmd>…]` | container start | runs the start steps, then `<cmd>` |
+| `devcon version` | container | shows the image and its base images (version, creation time, commit) and the features version of `devcon` |
 | `devcon ssh-keys` | container (layer sshd) | loads the SSH keys of the owner's GitHub account |
 | `devcon sshd-start` | container, root (layer sshd) | starts the SSH server |
 | `devcon os-updates [--security]` | root (layer os) | lists pending Debian updates without installing them |

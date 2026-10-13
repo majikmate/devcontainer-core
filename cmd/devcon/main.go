@@ -18,6 +18,7 @@
 // Container:
 //
 //	devcon start [<command>...] run the start steps of the installed layers, then <command>
+//	devcon version              show the image, its base images and the features version
 //
 // Layers add their own commands, for example "devcon ssh-keys" (layer sshd) or
 // "devcon os-updates" (layer os); "devcon help" lists them.
@@ -29,8 +30,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 
 	_ "github.com/majikmate/devcontainer-core/internal/all" // registers the layers and features
 	"github.com/majikmate/devcontainer-core/pkg/devcontainer"
@@ -60,6 +63,8 @@ func main() {
 		} else {
 			listLayers()
 		}
+	case "version":
+		err = version()
 	case "start":
 		start()
 		if len(args) > 0 {
@@ -85,6 +90,7 @@ func usage() {
   metadata              print the devcontainer.metadata entries of the installed layers
   check [<layer>...]    check the support of the installed layers (for example the Debian release)
   start [<command>...]  run the start steps of the installed layers, then run <command>
+  version               show the image, its base images and the features version of devcon
 
 Commands of the layers:`)
 	for _, l := range layer.All() {
@@ -182,6 +188,44 @@ func check(names []string) error {
 		}
 		fmt.Printf("supported\t%s\n", name)
 	}
+	return nil
+}
+
+// version prints the released images of the chain (newest first: the image,
+// then its base images) and the devcontainer-features version of devcon:
+//
+//	ghcr.io/majikmate/devcontainer-classroom-web  2.0.28  2026-10-11T20:50:00Z  commit 1a2b3c4
+//	ghcr.io/majikmate/devcontainer-base           2.0.27  2026-10-10T23:29:25Z  commit 5d6e7f8
+//	ghcr.io/majikmate/devcontainer-core           1.0.30  2026-10-08T22:32:17Z  commit 9a0b1c2
+//	devcon with devcontainer-features v1.0.13
+func version() error {
+	images, err := state.Images(state.ImagesDir)
+	if err != nil {
+		return err
+	}
+	if len(images) == 0 {
+		fmt.Println("No image information: the image was not built by the release workflow, or before devcon version existed.")
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	for _, img := range images {
+		revision := img.Revision
+		if len(revision) > 7 {
+			revision = revision[:7]
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\tcommit %s\n", img.Name, img.Version, img.Created, revision)
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	features := "(unknown)"
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, m := range info.Deps {
+			if m.Path == "github.com/majikmate/devcontainer-features" {
+				features = m.Version
+			}
+		}
+	}
+	fmt.Println("devcon with devcontainer-features", features)
 	return nil
 }
 
