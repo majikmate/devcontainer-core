@@ -26,6 +26,9 @@ type PruneOptions struct {
 	// Major is the current major version of the image: the versions of
 	// lower major lines are outdated (0: keep all major lines).
 	Major int
+	// KeepReleases: only the newest releases of the current major line are
+	// kept, the older ones are outdated (0: no limit).
+	KeepReleases int
 	// MaxAgeDays: the releases of the current major line that are older
 	// are outdated; the newest release is always kept (0: keep all).
 	MaxAgeDays int
@@ -59,8 +62,9 @@ type packageVersion struct {
 //     tags moved to a newer build),
 //   - the tags buildcache-* of the former release workflow,
 //   - the versions of major lines below the current major version,
-//   - the releases of the current major line older than MaxAgeDays (or,
-//     with AllButNewest, all but the newest release).
+//   - the releases of the current major line that are not among the
+//     newest KeepReleases or that are older than MaxAgeDays (or, with
+//     AllButNewest, all but the newest release).
 //
 // A version that a kept image refers to (for example the image of one
 // architecture in a multi-architecture image) is never deleted, and neither
@@ -75,7 +79,7 @@ func Prune(o PruneOptions) error {
 	if o.Apply {
 		mode = "delete"
 	}
-	rules := pruneRules{Major: o.Major, MaxAgeDays: o.MaxAgeDays, AllButNewest: o.AllButNewest, Now: time.Now()}
+	rules := pruneRules{Major: o.Major, KeepReleases: o.KeepReleases, MaxAgeDays: o.MaxAgeDays, AllButNewest: o.AllButNewest, Now: time.Now()}
 	report := []string{"### Outdated packages", "", "Mode: " + mode, "", "Rules: " + rules.String(), ""}
 	if len(o.Packages) == 0 {
 		report = []string{"### Outdated workflow runs", "", "Mode: " + mode, ""}
@@ -268,6 +272,7 @@ func outdatedVersions(versions []packageVersion, rules pruneRules, children func
 // pruneRules decide which tagged versions are outdated.
 type pruneRules struct {
 	Major        int // current major version (0: keep all major lines)
+	KeepReleases int // the newest releases of the current major line that are kept (0: no limit)
 	MaxAgeDays   int // releases of the current major line older than this (0: keep all)
 	AllButNewest bool
 	Now          time.Time
@@ -283,8 +288,13 @@ func (r pruneRules) String() string {
 	case r.Major <= 0:
 	case r.AllButNewest:
 		rules = append(rules, fmt.Sprintf("all releases %d.x.y except the newest", r.Major))
-	case r.MaxAgeDays > 0:
-		rules = append(rules, fmt.Sprintf("releases %d.x.y older than %d days (the newest is kept)", r.Major, r.MaxAgeDays))
+	default:
+		if r.KeepReleases > 0 {
+			rules = append(rules, fmt.Sprintf("releases %d.x.y except the newest %d", r.Major, r.KeepReleases))
+		}
+		if r.MaxAgeDays > 0 {
+			rules = append(rules, fmt.Sprintf("releases %d.x.y older than %d days (the newest is kept)", r.Major, r.MaxAgeDays))
+		}
 	}
 	return strings.Join(rules, ", ")
 }
@@ -297,15 +307,17 @@ var (
 )
 
 // releaseInfo describes the releases X.Y.Z of the current major line: when
-// each was created (its newest version) and which one is the newest.
+// each was created (its newest version), which one is the newest and the
+// place of each from the newest (0 = the newest).
 type releaseInfo struct {
 	created map[string]time.Time
 	newest  string
+	rank    map[string]int
 }
 
 // currentReleases collects the releases of the major line major.
 func currentReleases(versions []packageVersion, major int) releaseInfo {
-	info := releaseInfo{created: map[string]time.Time{}}
+	info := releaseInfo{created: map[string]time.Time{}, rank: map[string]int{}}
 	if major <= 0 {
 		return info
 	}
@@ -322,6 +334,14 @@ func currentReleases(versions []packageVersion, major int) releaseInfo {
 				info.newest = m[1]
 			}
 		}
+	}
+	releases := make([]string, 0, len(info.created))
+	for release := range info.created {
+		releases = append(releases, release)
+	}
+	sort.Slice(releases, func(i, j int) bool { return compareRelease(releases[i], releases[j]) > 0 })
+	for i, release := range releases {
+		info.rank[release] = i
 	}
 	return info
 }
@@ -347,7 +367,8 @@ func compareRelease(a, b string) int {
 //   - all its tags are build cache tags,
 //   - all its tags belong to a major line below the current one,
 //   - all its tags belong to one release of the current major line that is
-//     not the newest and is older than MaxAgeDays (or AllButNewest).
+//     not the newest and is not among the newest KeepReleases or is older
+//     than MaxAgeDays (or AllButNewest).
 //
 // A version with a moving tag (2, 2.0, latest) is always kept.
 func (r pruneRules) tagReason(tags []string, releases releaseInfo) string {
@@ -384,6 +405,8 @@ func (r pruneRules) tagReason(tags []string, releases releaseInfo) string {
 		return ""
 	case r.AllButNewest:
 		return fmt.Sprintf("release %s, not the newest release (%s)", release, releases.newest)
+	case r.KeepReleases > 0 && releases.rank[release] >= r.KeepReleases:
+		return fmt.Sprintf("release %s, not among the newest %d releases", release, r.KeepReleases)
 	case r.MaxAgeDays > 0 && releases.created[release].Before(r.Now.AddDate(0, 0, -r.MaxAgeDays)):
 		return fmt.Sprintf("release %s, older than %d days", release, r.MaxAgeDays)
 	}

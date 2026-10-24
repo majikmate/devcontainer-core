@@ -245,6 +245,7 @@ func prune(args []string) error {
 	fs.StringVar(&o.Org, "org", os.Getenv("GITHUB_REPOSITORY_OWNER"), "owner of the packages")
 	packages := fs.String("packages", "", "container packages, separated by spaces (default: the package of the repository)")
 	fs.IntVar(&o.Major, "major", 0, "current major version: versions of lower major lines are outdated (0: keep all)")
+	fs.IntVar(&o.KeepReleases, "keep-releases", 0, "only this number of the newest releases of the current major line is kept (0: no limit)")
 	fs.IntVar(&o.MaxAgeDays, "max-age-days", 0, "releases of the current major line older than this are outdated; the newest is kept (0: keep all)")
 	fs.BoolVar(&o.AllButNewest, "all-but-newest", false, "every release of the current major line except the newest is outdated")
 	fs.BoolVar(&o.DeletePackages, "delete-packages", false, "delete the whole packages")

@@ -69,6 +69,27 @@ func TestReleaseRules(t *testing.T) {
 		t.Errorf("90 days: %v, want %v", got, want)
 	}
 
+	// The newest 2 releases (2.0.10 and 2.0.5) stay; 2.0.4 and 2.0.1 go with
+	// their parts, whatever their age
+	got = ids(pruneRules{Major: 2, KeepReleases: 2, Now: now})
+	if want := map[int64]bool{3: true, 4: true, 5: true, 6: true, 7: true}; !equalSets(got, want) {
+		t.Errorf("newest 2: %v, want %v", got, want)
+	}
+
+	// Both rules: all 4 releases are within the count, but 2.0.1 is older
+	// than 90 days
+	got = ids(pruneRules{Major: 2, KeepReleases: 4, MaxAgeDays: 90, Now: now})
+	if want := map[int64]bool{5: true, 6: true, 7: true}; !equalSets(got, want) {
+		t.Errorf("newest 4 and 90 days: %v, want %v", got, want)
+	}
+
+	// The newest release only: 2.0.5 is outside the count, but the version
+	// with the moving tags stays, and so does its part 2.0.5-amd64
+	got = ids(pruneRules{Major: 2, KeepReleases: 1, Now: now})
+	if want := map[int64]bool{3: true, 4: true, 5: true, 6: true, 7: true}; !equalSets(got, want) {
+		t.Errorf("newest 1: %v, want %v", got, want)
+	}
+
 	// All but the newest (2.0.10): the version with the moving tags stays,
 	// and so does its part 2.0.5-amd64 (a kept image refers to it)
 	got = ids(pruneRules{Major: 2, AllButNewest: true, Now: now})
@@ -124,5 +145,13 @@ func TestOutdatedVersions(t *testing.T) {
 		if len(o.version.Tags) == 0 {
 			t.Errorf("untagged version %d deleted although the references are unknown", o.version.ID)
 		}
+	}
+}
+
+func TestPruneRulesString(t *testing.T) {
+	got := pruneRules{Major: 2, KeepReleases: 5}.String()
+	want := "major versions below 2, build cache tags, untagged versions that no kept image uses, releases 2.x.y except the newest 5"
+	if got != want {
+		t.Errorf("String() = %q, want %q", got, want)
 	}
 }
