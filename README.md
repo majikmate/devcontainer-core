@@ -312,8 +312,8 @@ files use the major tag (`FROM ghcr.io/majikmate/devcontainer-base:2`), not
 After every run (not for pull requests), the job `prune` deletes the outdated
 versions of the image package on ghcr.io:
 
-- releases of the current major line older than `prune-max-age-days` (default
-  90 days), with their `-amd64` and `-arm64` versions,
+- releases of the current major line except the newest `prune-keep-releases`
+  (default 5), with their `-amd64` and `-arm64` versions,
 - versions of major lines below `major-version`,
 - untagged versions that no kept image uses, and the old `buildcache-*` tags.
 
@@ -322,11 +322,10 @@ Always kept: the newest release, every version with a moving tag (`2`, `2.0`,
 cannot be read, no untagged version is deleted.
 
 The same job deletes the finished **workflow runs** of the repository older
-than `prune-max-age-days`, whatever their result (success, failure,
-cancelled); only runs that are still running are kept (permission
-`actions: write`). The input `prune`
-selects `apply` (default), `report` (list only) or `off`. Deleting cannot be
-undone.
+than `prune-runs-max-age-days` (default 30 days), whatever their result
+(success, failure, cancelled); only runs that are still running are kept
+(permission `actions: write`). The input `prune` selects `apply` (default),
+`report` (list only) or `off`. Deleting cannot be undone.
 
 Every repository also has the manual workflow **Actions → Prune** (modes
 `report` and `apply`) with two scopes: `outdated` (the rules above) and

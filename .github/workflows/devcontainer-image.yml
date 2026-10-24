@@ -60,13 +60,17 @@ on:
         type: string
         default: ""
       prune:
-        description: "Outdated package versions (untagged and not used, buildcache-*, major versions below major-version, releases older than prune-max-age-days) and workflow runs older than prune-max-age-days: apply (delete them, the default), report (only list them in the run summary) or off"
+        description: "Outdated package versions (untagged and not used, buildcache-*, major versions below major-version, releases of the current major line except the newest prune-keep-releases) and workflow runs older than prune-runs-max-age-days: apply (delete them, the default), report (only list them in the run summary) or off"
         type: string
         default: apply
-      prune-max-age-days:
-        description: Releases of the current major line and finished workflow runs (any result) older than this number of days are outdated; the newest release is always kept (0 keeps all)
+      prune-keep-releases:
+        description: Number of the newest releases of the current major line that are kept; the older releases are outdated (0 keeps all)
         type: number
-        default: 90
+        default: 5
+      prune-runs-max-age-days:
+        description: Finished workflow runs (any result) older than this number of days are outdated (0 keeps all)
+        type: number
+        default: 30
     secrets:
       app-client-id:
         description: Client ID of the GitHub App that starts the upstream workflows (only with update-upstream)
@@ -331,7 +335,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       packages: write
-      # delete the workflow runs older than prune-max-age-days
+      # delete the workflow runs older than prune-runs-max-age-days
       actions: write
     steps:
       - name: Check out the tooling
@@ -354,6 +358,6 @@ jobs:
         run: >-
           go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
-          --max-age-days "${{ inputs.prune-max-age-days }}"
-          --runs-max-age-days "${{ inputs.prune-max-age-days }}"
+          --keep-releases "${{ inputs.prune-keep-releases }}"
+          --runs-max-age-days "${{ inputs.prune-runs-max-age-days }}"
           --mode "${{ inputs.prune }}"

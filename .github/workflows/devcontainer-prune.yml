@@ -12,9 +12,9 @@
 #
 # Scope "outdated": untagged versions that no kept image refers to, the tags
 # buildcache-* of the former release workflow, the versions of major lines
-# below major-version, the releases of the current major line older than
-# max-age-days, and the finished workflow runs older than max-age-days
-# (with any result: success, failure, cancelled).
+# below major-version, the releases of the current major line except the
+# newest keep-releases, and the finished workflow runs older than
+# runs-max-age-days (with any result: success, failure, cancelled).
 # Scope "all-but-newest" (a clean-up) treats every release of the current
 # major line except the newest, and every finished workflow run except the
 # newest run of each workflow, as outdated. The newest release, the moving
@@ -41,10 +41,14 @@ on:
         description: Only the workflow runs, no package (for a repository without an image)
         type: boolean
         default: false
-      max-age-days:
-        description: Releases of the current major line and finished workflow runs (any result) older than this number of days are outdated (0 keeps all)
+      keep-releases:
+        description: Number of the newest releases of the current major line that are kept; the older releases are outdated (0 keeps all)
         type: number
-        default: 90
+        default: 5
+      runs-max-age-days:
+        description: Finished workflow runs (any result) older than this number of days are outdated (0 keeps all)
+        type: number
+        default: 30
 
 env:
   CGO_ENABLED: "0"
@@ -79,8 +83,8 @@ jobs:
         run: >-
           go -C .devcon run ./cmd/devcon-release prune
           --major "${{ inputs.major-version }}"
-          --max-age-days "${{ inputs.max-age-days }}"
-          --runs-max-age-days "${{ inputs.max-age-days }}"
+          --keep-releases "${{ inputs.keep-releases }}"
+          --runs-max-age-days "${{ inputs.runs-max-age-days }}"
           --all-but-newest="${{ inputs.scope == 'all-but-newest' }}"
           --runs-only="${{ inputs.runs-only }}"
           --mode "${{ inputs.mode }}"
