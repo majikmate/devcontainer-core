@@ -32,11 +32,11 @@ Python scripts.
 devcontainer-features                                  Go library of layers, compiled into devcon
   ▼
 devcontainer-core:1                            22:17   Debian 13, devcon, user dev, zsh, SSH server
-├── devcontainer-base:2                        23:17   + go, build-tools, node, deno, prettier
+├── devcontainer-base:2                        23:17   + go, build-tools, node, ts, deno, prettier
 │   ├── devcontainer-dev:2                     23:57   + github-cli
 │   ├── devcontainer-classroom-web:2           00:07   + html-validate, classroom settings, AI off
 │   └── devcontainer-classroom-web-advanced:2  00:17   + playwright-deps, html-validate, AI on
-└── devcontainer-classroom-exam-ts:2           23:47   + deno, AI and coding assistance off
+└── devcontainer-classroom-exam-ts:2           23:47   + build-tools, node, ts, deno, AI and coding assistance off
 ```
 
 This repository: **devcontainer-core**. Nightly checks in UTC. Repositories:
@@ -55,7 +55,7 @@ Each layer is one line in [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile)
 | Layer | Content | Code in | Version |
 | ----- | ------- | ------- | ------- |
 | `os` | all Debian updates and the basic tools | [core: `os.go`](pkg/layers/os.go) | Debian 13 "trixie" ([`debianPin`](pkg/layers/os.go#L31-L34)) |
-| `user` | user `dev` (UID 1000) with zsh and sudo | [core: `user.go`](pkg/layers/user.go) | — |
+| `user` | user `dev` (UID 1000) with zsh and sudo; Tab completion in zsh (`compinit`) and bash (bash-completion) | [core: `user.go`](pkg/layers/user.go) | — |
 | `locales` | locales of `LANG` and `LC_*`, time zone `TZ` | [core: `locales.go`](pkg/layers/locales.go) | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
 | `git` | system-wide git settings (rebase on pull, auto stash) | [features: `git`](https://github.com/majikmate/devcontainer-features/tree/main/git) | — |
 | `aliases` | shell aliases: ls, ll, grep, vs | [features: `aliases`](https://github.com/majikmate/devcontainer-features/tree/main/aliases) | — |
@@ -199,7 +199,7 @@ the distribution, otherwise in devcontainer-features. It declares:
 | [`pkg/layer`](pkg/layer) | layer definition, registry, version rule (sources, pins, channels), test helpers |
 | [`pkg/sys`](pkg/sys) | commands, downloads with checksum, archives, users, files |
 | [`pkg/debian`](pkg/debian) | apt, pending package updates, Debian releases |
-| [`pkg/shellrc`](pkg/shellrc) | settings for bash and zsh |
+| [`pkg/shellrc`](pkg/shellrc) | settings for bash and zsh, Tab completion |
 | [`pkg/state`](pkg/state) | installed layers and development user of an image |
 | [`pkg/devcontainer`](pkg/devcontainer) | entries of the label `devcontainer.metadata` |
 | [`pkg/versions`](pkg/versions) | newest versions from go.dev, Node.js, Deno, npm, GitHub releases |

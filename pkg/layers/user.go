@@ -20,7 +20,7 @@ import (
 func init() {
 	layer.Register(&layer.Layer{
 		Name:    "user",
-		Summary: "creates the development user with zsh and sudo",
+		Summary: "creates the development user with zsh, sudo and Tab completion in zsh and bash",
 		Needs:   []string{"os"},
 		Args: []layer.Arg{
 			{Name: "USERNAME", Default: "dev", Doc: "name of the development user"},
@@ -46,6 +46,8 @@ func init() {
 			home, _ := os.UserHomeDir()
 			t.Check("~/.zshrc exists (no zsh setup wizard)", sys.Exists(filepath.Join(home, ".zshrc")))
 			t.Command("~/.local/bin in PATH of zsh", "zsh", "-ic", `[[ ":$PATH:" == *":$HOME/.local/bin:"* ]]`)
+			t.Command("Tab completion in zsh (compinit)", "zsh", "-ic", `(( ${+_comps[git]} ))`)
+			t.Command("Tab completion in bash (bash-completion)", "bash", "-ic", `[[ -n "${BASH_COMPLETION_VERSINFO-}" ]]`)
 		},
 	})
 }
