@@ -9,7 +9,11 @@
 //	/etc/devcon/zshrc.d/*.zsh    zsh only (for example the prompt)
 //
 // The system start files of bash and zsh get one loader block each. Layers
-// never edit these start files themselves.
+// never edit these start files themselves. After the layer files, the loader
+// blocks turn on the Tab completion of the shell: the completion system of
+// zsh (compinit), so a layer can add completion folders to fpath first, and
+// bash-completion in bash, which a login shell has already loaded from
+// /etc/profile.d.
 package shellrc
 
 import (
@@ -30,11 +34,17 @@ const (
 const bashLoader = markerBegin + `
 for devcon_rc in /etc/devcon/shellrc.d/*.sh; do [ -r "$devcon_rc" ] && . "$devcon_rc"; done
 unset devcon_rc
+if [ -z "${BASH_COMPLETION_VERSINFO-}" ] && ! shopt -oq posix && [ -r /usr/share/bash-completion/bash_completion ]; then
+  . /usr/share/bash-completion/bash_completion
+fi
 ` + markerEnd
 
+// compinit -i leaves out the folders of fpath that another user can change,
+// without a question.
 const zshLoader = markerBegin + `
 for devcon_rc in /etc/devcon/shellrc.d/*.sh(N) /etc/devcon/zshrc.d/*.zsh(N); do . "$devcon_rc"; done
 unset devcon_rc
+autoload -Uz compinit && compinit -i
 ` + markerEnd
 
 // Shared adds a configuration file for bash and zsh.

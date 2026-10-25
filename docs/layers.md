@@ -23,7 +23,7 @@ the features version of `go.mod`; the images use the newest features version.
 | [`prettier`](#prettier) | Prettier with the Tailwind CSS plugin and a global configuration | node | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`pure-prompt`](#pure-prompt) | Pure prompt for zsh (https://github.com/sindresorhus/pure) | user | [devcontainer-features](https://github.com/majikmate/devcontainer-features) |
 | [`sshd`](#sshd) | SSH server on port 2222 (keys only, no root) with the keys of the owner's GitHub account | user | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
-| [`user`](#user) | creates the development user with zsh and sudo | os | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
+| [`user`](#user) | creates the development user with zsh, sudo and Tab completion in zsh and bash | os | [devcontainer-core](https://github.com/majikmate/devcontainer-core) |
 
 ## aliases
 
@@ -354,7 +354,7 @@ Entry in the image label `devcontainer.metadata`:
 
 ## user
 
-Creates the development user with zsh and sudo.
+Creates the development user with zsh, sudo and Tab completion in zsh and bash.
 
 Dockerfile: `RUN devcon install user`
 
