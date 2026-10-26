@@ -34,7 +34,11 @@
         "git.postCommitCommand": "sync",
         "git.rebaseWhenSync": true,
         "git.rememberPostCommitCommand": false,
-        "git.useEditorAsCommitInput": false
+        "git.useEditorAsCommitInput": false,
+        // A folder inside a repository, opened as the folder of VS Code (for
+        // example a project in a subfolder, opened with `code .`), uses that
+        // repository in Source Control without asking first
+        "git.openRepositoryInParentFolders": "always"
       }
     }
   }
