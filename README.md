@@ -129,10 +129,10 @@ The release notes show the result as inputs `tool/<name>`, `pin/<name>` and
 | ---- | ----- | ------------ | --- | ------- |
 | `debian` | `os` (core) | [`pkg/layers/os.go`](pkg/layers/os.go#L31-L34) | `trixie` (Debian 13) | — |
 | `go` | `go` (features) | [`golang/golang.go`](https://github.com/majikmate/devcontainer-features/blob/main/golang/golang.go#L49-L54) | `1.27` | — |
-| `node` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go#L39-L44) | `24` | `lts` (or `current`) |
+| `node` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go#L40-L45) | `26` | `lts` (or `current`) |
 | `deno` | `deno` (features) | [`deno/deno.go`](https://github.com/majikmate/devcontainer-features/blob/main/deno/deno.go#L36-L39) | `2` | `lts` (or `stable`) |
 | `golangci-lint` | `go` (features) | [`golang/golang.go`](https://github.com/majikmate/devcontainer-features/blob/main/golang/golang.go#L49-L54) | none: the newest release | — |
-| `nvm` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go#L39-L44) | none: the newest release | — |
+| `nvm` | `node` (features) | [`node/node.go`](https://github.com/majikmate/devcontainer-features/blob/main/node/node.go#L40-L45) | none: the newest release | — |
 | `prettier`, `prettier-plugin-tailwindcss` | `prettier` (features) | [`prettier/prettier.go`](https://github.com/majikmate/devcontainer-features/blob/main/prettier/prettier.go#L32-L37) | none: the newest release | — |
 | `gh` | `github-cli` (features) | [`githubcli/githubcli.go`](https://github.com/majikmate/devcontainer-features/blob/main/githubcli/githubcli.go#L30-L33) | none: the newest release | — |
 | `pure` | `pure-prompt` (features) | [`pureprompt/pureprompt.go`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31) | none: the newest release | — |
