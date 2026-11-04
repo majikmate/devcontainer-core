@@ -58,7 +58,7 @@ Each layer is one line in [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile)
 | `user` | user `dev` (UID 1000) with zsh and sudo; Tab completion in zsh (`compinit`) and bash (bash-completion) | [core: `user.go`](pkg/layers/user.go) | — |
 | `locales` | locales of `LANG` and `LC_*`, time zone `TZ` | [core: `locales.go`](pkg/layers/locales.go) | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
 | `git` | system-wide git settings (rebase on pull, auto stash) | [features: `git`](https://github.com/majikmate/devcontainer-features/tree/main/git) | — |
-| `aliases` | shell aliases: ls, ll, grep, vs | [features: `aliases`](https://github.com/majikmate/devcontainer-features/tree/main/aliases) | — |
+| `aliases` | shell aliases: ls, ll, grep, vs; the function `code`, which opens a folder in the same window of VS Code | [features: `aliases`](https://github.com/majikmate/devcontainer-features/tree/main/aliases) | — |
 | `pure-prompt` | Pure prompt for zsh | [features: `pureprompt`](https://github.com/majikmate/devcontainer-features/tree/main/pureprompt) | newest release ([`purePin`](https://github.com/majikmate/devcontainer-features/blob/main/pureprompt/pureprompt.go#L28-L31)) |
 | `sshd` | SSH server on port 2222 (see [SSH access](#ssh-access)) | [core: `sshd.go`](pkg/layers/sshd.go) | Debian packages of the Debian release ([`debianPin`](pkg/layers/os.go#L31-L34)) |
 
