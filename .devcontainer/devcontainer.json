@@ -16,8 +16,18 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        // Markdown preview in GitHub style
-        "bierner.github-markdown-preview"
+        // Markdown preview in GitHub style: the four extensions of the pack
+        // bierner.github-markdown-preview, listed one by one. The pack is not
+        // used, because VS Code before 1.122 gets an older version of the pack,
+        // and that version also installs bierner.markdown-yaml-preamble.
+        "bierner.markdown-preview-github-styles",
+        "bierner.markdown-emoji",
+        "bierner.markdown-checkbox",
+        "bierner.markdown-footnotes",
+        // Not installed: bierner.markdown-yaml-preamble is deprecated (VS Code
+        // 1.121 and later shows the front matter in the preview itself), and its
+        // table of the front matter replaces the front matter of VS Code
+        "-bierner.markdown-yaml-preamble"
       ],
       "settings": {
         // Open Markdown files in the preview
